@@ -54,6 +54,9 @@ npm run seed     # optional: two example builds, one with problems buried in it
 npm run dev      # http://localhost:3000
 ```
 
+The first page you see is **Set up** — it creates the owner account. After that, Bhargo
+asks for a username and password and nobody without one gets past the sign-in page.
+
 `npm run seed` wipes the database and writes sample data — a finished 1,800 sq.ft house
 and a 2,200 sq.ft one being built three years later. Open **Compare builds** and the
 second house should come back with an overcharged cement rate, 30% more cement than the
@@ -79,6 +82,72 @@ npm test
 | **Builds** | Add a house; floor area lives here |
 | **Settings** | What counts as normal price drift and what counts as too much |
 
+## Who can get in
+
+Bhargo has no sign-up. The first run creates the **owner**; every other account is made by
+the owner on the **Accounts** page. Two roles:
+
+| | Owner | Staff |
+| --- | --- | --- |
+| Record bills, attendance, wages, builds | yes | yes |
+| Compare builds, see wage sheets | yes | yes |
+| Add and remove accounts | yes | no |
+| Change thresholds in Settings | yes | no |
+| Delete a whole build or worker | yes | no |
+
+Passwords are stored as salted scrypt hashes — not readable, not recoverable, only
+resettable by the owner. Sessions are random tokens kept in the database, which is what
+makes **Switch off** immediate: the moment an account is switched off or its password
+changed, every device signed in as that person is locked out on the next click. Somebody
+leaving the company is one button, and everything they recorded stays in the books.
+
+Five wrong passwords in a row on one username put it on hold for a minute, so a guessing
+script gets nowhere.
+
+## Making it reachable to your company only
+
+Accounts decide *who* may sign in. Where Bhargo can be reached from is a separate wall,
+and the stronger of the two — pick the narrowest one that suits how you work:
+
+**1. One office computer.** Run `npm run start` and use it on that machine. Nothing else
+on earth can reach it. Best if one person keeps the books.
+
+**2. The office network.** Run it on one machine, reachable from the others:
+
+```bash
+npm run build
+npx next start -H 0.0.0.0 -p 3000     # then http://<that-machine-ip>:3000
+```
+
+Everyone in the office can reach the sign-in page; nobody outside can, as long as you do
+**not** forward port 3000 on your router. This is the usual answer for a company office.
+
+**3. Site staff, from anywhere.** Put the company's phones and laptops on a private
+network — [Tailscale](https://tailscale.com) is the least painful, WireGuard if you prefer
+to run it yourself — and keep Bhargo bound to that network's address. It then answers only
+to devices you added by hand, from any site, with no port open to the world.
+
+**4. On the open internet.** Only if you really need it, and only behind HTTPS:
+
+```bash
+BHARGO_SECURE_COOKIES=1 npx next start -p 3000
+```
+
+with a reverse proxy (Caddy or nginx) terminating TLS in front of it. Understand the
+trade: anyone in the world can now reach your sign-in page, so the passwords become the
+only thing between them and your books. Use long ones.
+
+Whichever you choose, `data/bhargo.db` holds both the books and the password hashes.
+Back it up somewhere only the company can read.
+
+### Settings you can pass
+
+| Variable | What it does |
+| --- | --- |
+| `BHARGO_DB` | Where the database file lives (default `data/bhargo.db`) |
+| `BHARGO_SECURE_COOKIES` | Set to `1` when serving over HTTPS, so the session cookie is HTTPS-only |
+| `PORT` | Port to listen on (default 3000) |
+
 ## Things worth knowing
 
 **Floor area is the field that matters.** Every cross-build number is per square foot. A
@@ -96,10 +165,6 @@ used?
 **Lump-sum items** — wiring, plumbing, sanitary — are judged as a whole against house
 size, since a "rate per lot" means little on its own.
 
-**There is no login.** Anyone who can reach the port can read and change the books, so
-run it on your own machine or your own network, not on a public server. Putting it online
-means adding authentication first.
-
 **Freight is separate from the rate.** Enter it in its own box; the comparison uses
 landed cost (goods plus freight) so a low rate with a fat cartage charge cannot hide.
 
@@ -116,10 +181,13 @@ src/
     payroll.ts    wage ledgers, labour cost per sq.ft, trade-by-trade comparison
     redflags.ts   checks that need only one build's own bills
     materials.ts  material catalog and how fast each one normally moves
+    auth.ts       accounts, roles, sessions
+    password.ts   scrypt hashing, on its own so it can be tested
     db.ts         SQLite schema and queries
-    actions.ts    form handlers
+    actions.ts    form handlers, each one guarded
 scripts/seed.ts   sample data
-tests/            the arithmetic, under test
+src/middleware.ts first gate: no session cookie, no pages
+tests/            the arithmetic and the password hashing, under test
 data/bhargo.db    your books (gitignored)
 ```
 

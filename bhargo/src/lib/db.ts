@@ -65,6 +65,24 @@ create table if not exists purchases (
   note text
 );
 
+create table if not exists users (
+  id integer primary key autoincrement,
+  name text not null,
+  username text not null unique collate nocase,
+  password_hash text not null,
+  role text not null default 'staff' check (role in ('owner','staff')),
+  active integer not null default 1,
+  created_at text not null,
+  last_seen_at text
+);
+
+create table if not exists sessions (
+  token text primary key,
+  user_id integer not null references users (id) on delete cascade,
+  created_at text not null,
+  expires_at text not null
+);
+
 create table if not exists settings (
   id integer primary key check (id = 1),
   currency text not null,
@@ -80,6 +98,7 @@ create index if not exists attendance_worker_idx on attendance (worker_id, work_
 create index if not exists payments_worker_idx on payments (worker_id, paid_on);
 create index if not exists purchases_project_idx on purchases (project_id, purchased_on);
 create index if not exists purchases_material_idx on purchases (material_key);
+create index if not exists sessions_user_idx on sessions (user_id);
 `;
 
 type Db = InstanceType<typeof Database>;

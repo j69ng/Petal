@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { requireUser } from "@/lib/auth";
 import { Card, Empty, Pill, Stat } from "@/components/ui";
 import { getSettings, listAttendance, listProjects, listPurchases, listWorkers } from "@/lib/db";
 import { formatMoney, formatPct, formatQty, formatRate, formatShort } from "@/lib/money";
@@ -14,6 +15,7 @@ export default function ComparePage({
 }: {
   searchParams: { base?: string; current?: string; progress?: string };
 }) {
+  requireUser();
   const settings = getSettings();
   const projects = listProjects();
 

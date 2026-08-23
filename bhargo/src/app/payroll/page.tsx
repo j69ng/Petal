@@ -1,4 +1,5 @@
 import { addPayment, removePayment } from "@/lib/actions";
+import { requireUser } from "@/lib/auth";
 import { Card, Empty, Field, Stat } from "@/components/ui";
 import { getSettings, listAttendance, listPayments, listProjects, listWorkers } from "@/lib/db";
 import { formatMoney, formatShort } from "@/lib/money";
@@ -11,6 +12,7 @@ export default function PayrollPage({
 }: {
   searchParams: { project?: string; from?: string; to?: string };
 }) {
+  requireUser();
   const settings = getSettings();
   const projects = listProjects();
   const workers = listWorkers();

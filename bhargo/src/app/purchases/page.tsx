@@ -1,5 +1,6 @@
 import { addPurchase, removePurchase } from "@/lib/actions";
 import MaterialSelect from "@/components/MaterialSelect";
+import { requireUser } from "@/lib/auth";
 import { Card, Empty, Field } from "@/components/ui";
 import { getSettings, listProjects, listPurchases, listVendors } from "@/lib/db";
 import { formatMoney, formatQty, formatRate } from "@/lib/money";
@@ -9,6 +10,7 @@ import { lineAmount, rollupByMaterial } from "@/lib/variance";
 export const dynamic = "force-dynamic";
 
 export default function PurchasesPage({ searchParams }: { searchParams: { project?: string } }) {
+  requireUser();
   const settings = getSettings();
   const projects = listProjects();
   const money = (n: number) => formatMoney(Math.round(n), settings.currency);

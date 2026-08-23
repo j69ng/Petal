@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import * as store from "./db";
+import * as auth from "./auth";
 import { material } from "./materials";
-import type { PaymentKind, ProjectStatus, WageType } from "./types";
+import type { PaymentKind, ProjectStatus, UserRole, WageType } from "./types";
 
 function str(form: FormData, key: string): string {
   return String(form.get(key) ?? "").trim();
@@ -28,6 +29,7 @@ function refresh(...paths: string[]) {
 // ---------------------------------------------------------------- projects
 
 export async function addProject(form: FormData) {
+  auth.requireUser();
   const name = str(form, "name");
   if (!name) return;
 
@@ -46,6 +48,7 @@ export async function addProject(form: FormData) {
 }
 
 export async function editProject(form: FormData) {
+  auth.requireUser();
   const id = num(form, "id");
   const existing = store.getProject(id);
   if (!existing) return;
@@ -64,6 +67,7 @@ export async function editProject(form: FormData) {
 }
 
 export async function removeProject(form: FormData) {
+  auth.requireOwner();
   store.deleteProject(num(form, "id"));
   refresh("/projects", "/compare", "/purchases", "/payroll");
 }
@@ -71,6 +75,7 @@ export async function removeProject(form: FormData) {
 // ---------------------------------------------------------------- workers
 
 export async function addWorker(form: FormData) {
+  auth.requireUser();
   const name = str(form, "name");
   if (!name) return;
 
@@ -87,6 +92,7 @@ export async function addWorker(form: FormData) {
 }
 
 export async function editWorker(form: FormData) {
+  auth.requireUser();
   const id = num(form, "id");
   const existing = store.getWorker(id);
   if (!existing) return;
@@ -104,6 +110,7 @@ export async function editWorker(form: FormData) {
 }
 
 export async function removeWorker(form: FormData) {
+  auth.requireOwner();
   store.deleteWorker(num(form, "id"));
   refresh("/people", "/payroll");
 }
@@ -115,6 +122,7 @@ export async function removeWorker(form: FormData) {
  * row, so a later raise never rewrites what an old day cost.
  */
 export async function markDay(form: FormData) {
+  auth.requireUser();
   const project_id = num(form, "project_id");
   const work_date = str(form, "work_date");
   if (!project_id || !work_date) return;
@@ -139,6 +147,7 @@ export async function markDay(form: FormData) {
 }
 
 export async function removeAttendance(form: FormData) {
+  auth.requireUser();
   store.deleteAttendance(num(form, "id"));
   refresh("/people", "/payroll", "/compare");
 }
@@ -146,6 +155,7 @@ export async function removeAttendance(form: FormData) {
 // ---------------------------------------------------------------- payments
 
 export async function addPayment(form: FormData) {
+  auth.requireUser();
   const worker_id = num(form, "worker_id");
   const amount = num(form, "amount");
   if (!worker_id || amount <= 0) return;
@@ -163,6 +173,7 @@ export async function addPayment(form: FormData) {
 }
 
 export async function removePayment(form: FormData) {
+  auth.requireUser();
   store.deletePayment(num(form, "id"));
   refresh("/payroll", "/people");
 }
@@ -170,6 +181,7 @@ export async function removePayment(form: FormData) {
 // ---------------------------------------------------------------- purchases
 
 export async function addPurchase(form: FormData) {
+  auth.requireUser();
   const project_id = num(form, "project_id");
   const material_key = str(form, "material_key");
   const qty = num(form, "qty");
@@ -192,6 +204,7 @@ export async function addPurchase(form: FormData) {
 }
 
 export async function removePurchase(form: FormData) {
+  auth.requireUser();
   store.deletePurchase(num(form, "id"));
   refresh("/purchases", "/compare");
 }
@@ -199,6 +212,7 @@ export async function removePurchase(form: FormData) {
 // ---------------------------------------------------------------- settings
 
 export async function saveSettingsAction(form: FormData) {
+  auth.requireOwner();
   const current = store.getSettings();
 
   store.saveSettings({
@@ -211,4 +225,95 @@ export async function saveSettingsAction(form: FormData) {
   });
 
   refresh("/settings", "/compare", "/payroll");
+}
+
+// ---------------------------------------------------------------- accounts
+
+/** First run: the owner account. Nobody can reach the books before this exists. */
+export async function createFirstOwner(form: FormData) {
+  if (auth.userCount() > 0) redirect("/login");
+
+  const result = await auth.createUser({
+    name: str(form, "name"),
+    username: str(form, "username"),
+    password: String(form.get("password") ?? ""),
+    role: "owner",
+  });
+
+  if (!result.ok) redirect(`/setup?error=${encodeURIComponent(result.error)}`);
+
+  await auth.signIn(str(form, "username"), String(form.get("password") ?? ""));
+  redirect("/");
+}
+
+export async function signInAction(form: FormData) {
+  const username = str(form, "username");
+  const next = str(form, "next");
+  const result = await auth.signIn(username, String(form.get("password") ?? ""));
+
+  if (!result.ok) {
+    const params = new URLSearchParams({ error: result.error });
+    if (next) params.set("next", next);
+    redirect(`/login?${params}`);
+  }
+
+  redirect(next && next.startsWith("/") ? next : "/");
+}
+
+export async function signOutAction() {
+  auth.signOut();
+  redirect("/login");
+}
+
+export async function createStaffUser(form: FormData) {
+  auth.requireOwner();
+
+  const result = await auth.createUser({
+    name: str(form, "name"),
+    username: str(form, "username"),
+    password: String(form.get("password") ?? ""),
+    role: (str(form, "role") || "staff") as UserRole,
+  });
+
+  refresh("/users");
+  redirect(
+    result.ok
+      ? `/users?ok=${encodeURIComponent(`${str(form, "name")} can now sign in.`)}`
+      : `/users?error=${encodeURIComponent(result.error)}`
+  );
+}
+
+export async function changePassword(form: FormData) {
+  auth.requireOwner();
+
+  const password = String(form.get("password") ?? "");
+  if (!password) redirect("/users");
+
+  const result = await auth.setPassword(num(form, "id"), password);
+  refresh("/users");
+  redirect(
+    result.ok
+      ? `/users?ok=${encodeURIComponent("Password changed. They will need to sign in again.")}`
+      : `/users?error=${encodeURIComponent(result.error ?? "Could not change the password.")}`
+  );
+}
+
+export async function toggleUser(form: FormData) {
+  const owner = auth.requireOwner();
+  const id = num(form, "id");
+  if (id === owner.id) redirect(`/users?error=${encodeURIComponent("You cannot switch off your own account.")}`);
+
+  auth.setUserActive(id, str(form, "active") === "1");
+  refresh("/users");
+  redirect("/users");
+}
+
+export async function removeUser(form: FormData) {
+  const owner = auth.requireOwner();
+  const id = num(form, "id");
+  if (id === owner.id) redirect(`/users?error=${encodeURIComponent("You cannot delete your own account.")}`);
+
+  auth.deleteUser(id);
+  refresh("/users");
+  redirect("/users");
 }

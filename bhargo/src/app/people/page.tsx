@@ -1,4 +1,5 @@
 import { addWorker, editWorker, markDay, removeAttendance, removeWorker } from "@/lib/actions";
+import { requireUser } from "@/lib/auth";
 import { Card, Empty, Field } from "@/components/ui";
 import { getSettings, listAttendance, listProjects, listWorkers } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 const TRADES = ["mason", "helper", "carpenter", "electrician", "plumber", "painter", "bar-bender", "supervisor", "driver"];
 
 export default function PeoplePage({ searchParams }: { searchParams: { project?: string; date?: string } }) {
+  requireUser();
   const settings = getSettings();
   const projects = listProjects();
   const workers = listWorkers();

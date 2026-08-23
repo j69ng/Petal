@@ -1,4 +1,5 @@
 import { saveSettingsAction } from "@/lib/actions";
+import { requireOwner } from "@/lib/auth";
 import { Card, Field } from "@/components/ui";
 import { getSettings } from "@/lib/db";
 import { MATERIALS } from "@/lib/materials";
@@ -6,6 +7,7 @@ import { MATERIALS } from "@/lib/materials";
 export const dynamic = "force-dynamic";
 
 export default function SettingsPage() {
+  requireOwner();
   const settings = getSettings();
 
   return (

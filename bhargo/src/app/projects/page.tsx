@@ -1,4 +1,5 @@
 import { addProject, editProject, removeProject } from "@/lib/actions";
+import { requireUser } from "@/lib/auth";
 import { Card, Empty, Field } from "@/components/ui";
 import { getSettings, listAttendance, listProjects, listPurchases, listWorkers } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -8,6 +9,7 @@ import { rollupByMaterial } from "@/lib/variance";
 export const dynamic = "force-dynamic";
 
 export default function ProjectsPage() {
+  requireUser();
   const settings = getSettings();
   const projects = listProjects();
   const workers = listWorkers();

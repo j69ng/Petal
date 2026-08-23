@@ -72,6 +72,26 @@ export interface Purchase {
   note: string | null;
 }
 
+export type UserRole = "owner" | "staff";
+
+export interface User {
+  id: number;
+  name: string;
+  username: string;
+  /** "owner" can manage accounts, settings and deletions; "staff" keeps the books. */
+  role: UserRole;
+  active: 0 | 1;
+  created_at: string;
+  last_seen_at: string | null;
+}
+
+export interface Session {
+  token: string;
+  user_id: number;
+  created_at: string;
+  expires_at: string;
+}
+
 export interface Settings {
   currency: string;
   /** Default expected annual price drift, in percent. Per-material overrides live in the catalog. */

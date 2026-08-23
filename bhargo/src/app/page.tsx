@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { requireUser } from "@/lib/auth";
 import { Card, Empty, Pill, Stat } from "@/components/ui";
 import { getSettings, listAttendance, listPayments, listProjects, listPurchases, listWorkers } from "@/lib/db";
 import { formatMoney, formatShort } from "@/lib/money";
@@ -9,7 +10,8 @@ import { compareProjects, rollupByMaterial } from "@/lib/variance";
 
 export const dynamic = "force-dynamic";
 
-export default function OverviewPage() {
+export default function OverviewPage({ searchParams }: { searchParams: { denied?: string } }) {
+  requireUser();
   const settings = getSettings();
   const projects = listProjects();
   const money = (n: number) => formatMoney(Math.round(n), settings.currency);
@@ -48,6 +50,11 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-6">
+      {searchParams.denied === "owner" && (
+        <p className="text-sm bg-brandsoft border border-line rounded px-4 py-3">
+          That page is for the owner account only. Ask whoever set Bhargo up if you need it.
+        </p>
+      )}
       <header>
         <h1 className="text-2xl font-semibold">{current.name}</h1>
         <p className="text-mute text-sm mt-1">

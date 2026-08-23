@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { signOutAction } from "@/lib/actions";
+
 const LINKS = [
   { href: "/", label: "Overview" },
   { href: "/compare", label: "Compare builds" },
@@ -10,11 +12,16 @@ const LINKS = [
   { href: "/people", label: "People" },
   { href: "/payroll", label: "Wages" },
   { href: "/projects", label: "Builds" },
-  { href: "/settings", label: "Settings" },
 ];
 
-export default function Nav() {
+const OWNER_LINKS = [
+  { href: "/settings", label: "Settings" },
+  { href: "/users", label: "Accounts" },
+];
+
+export default function Nav({ user }: { user: { name: string; role: string } }) {
   const pathname = usePathname();
+  const links = user.role === "owner" ? [...LINKS, ...OWNER_LINKS] : LINKS;
 
   return (
     <nav className="border-b border-line bg-card no-print">
@@ -22,7 +29,7 @@ export default function Nav() {
         <Link href="/" className="font-semibold text-lg mr-4 shrink-0">
           Bhargo
         </Link>
-        {LINKS.map((link) => {
+        {links.map((link) => {
           const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
           return (
             <Link
@@ -36,6 +43,10 @@ export default function Nav() {
             </Link>
           );
         })}
+        <form action={signOutAction} className="ml-auto flex items-center gap-3 pl-4 shrink-0">
+          <span className="text-xs text-mute whitespace-nowrap">{user.name}</span>
+          <button className="btn-quiet">Sign out</button>
+        </form>
       </div>
     </nav>
   );
