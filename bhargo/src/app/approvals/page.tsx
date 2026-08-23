@@ -8,11 +8,14 @@ import {
   listPayments,
   listProjects,
   listPurchases,
+  listQuotes,
   listWorkers,
+  ratesPaidByVendor,
 } from "@/lib/db";
 import { materialLabel } from "@/lib/materials";
 import { formatMoney, formatQty, formatRate } from "@/lib/money";
 import { checkAgainstUsual } from "@/lib/pricecheck";
+import { findAlternative, knownRates } from "@/lib/sourcing";
 import { lineAmount } from "@/lib/variance";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +32,7 @@ export default function ApprovalsPage() {
   const workerName = new Map(listWorkers().map((w) => [w.id, w.name]));
 
   const purchases = listPurchases({ status: "pending" });
+  const rates = knownRates(listQuotes(), ratesPaidByVendor());
   const payments = listPayments({ status: "pending" });
   const attendance = listAttendance({ status: "pending" });
 
@@ -123,6 +127,23 @@ export default function ApprovalsPage() {
                     </Pill>
                     <span className="text-sm text-mute">{check.message}</span>
                   </div>
+                  {(() => {
+                    const cheaper = findAlternative(
+                      {
+                        materialKey: purchase.material_key,
+                        rate: lineAmount(purchase) / (purchase.qty || 1),
+                        qty: purchase.qty,
+                        vendor: purchase.vendor,
+                        onDate: purchase.purchased_on,
+                      },
+                      rates,
+                      settings,
+                      settings.currency
+                    );
+                    return cheaper ? (
+                      <p className="text-sm text-ok mt-1">{cheaper.message}</p>
+                    ) : null;
+                  })()}
                   {purchase.note && <p className="text-xs text-mute mt-1">Note: {purchase.note}</p>}
 
                   <Decide table="purchases" id={purchase.id} />

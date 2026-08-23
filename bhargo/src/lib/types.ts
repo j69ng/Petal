@@ -134,6 +134,36 @@ export interface PriceEntry {
   updated_by: number | null;
 }
 
+/** Someone who sells to the company. Kept so a cheaper supplier can be phoned. */
+export interface Vendor {
+  name: string;
+  phone: string | null;
+  /** Which part of town. A rate is only useful if the load can actually reach the site. */
+  area: string | null;
+  note: string | null;
+}
+
+/**
+ * What a vendor says they will charge. This is the quote book — the thing that
+ * turns "am I being overcharged" into "yes, and here is who to ring".
+ */
+export interface Quote {
+  id: number;
+  vendor: string;
+  material_key: string;
+  unit: string;
+  rate: number;
+  /** Some rates only hold above a load size. */
+  min_qty: number | null;
+  /** Whether the rate already includes getting it to site. */
+  delivery_included: 0 | 1;
+  quoted_on: string;
+  /** After this date the quote is stale and stops being offered. */
+  valid_until: string | null;
+  note: string | null;
+  entered_by: number | null;
+}
+
 export interface Settings {
   currency: string;
   /** Default expected annual price drift, in percent. Per-material overrides live in the catalog. */

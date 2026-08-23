@@ -77,6 +77,7 @@ npm test
 | **Overview** | Where the current build stands: spent, owed, waiting, and the bills worth asking about |
 | **Waiting for you** | Owner only: everything unconfirmed, with its price check attached |
 | **Usual prices** | What each material should cost — the yardstick every bill is measured against |
+| **Rates & suppliers** | Every rate you have been quoted or paid, and who is cheapest on each material |
 | **Compare builds** | This build measured against a finished one, material by material and trade by trade |
 | **Materials** | Record a bill; see totals per material, rate ranges and who supplied what |
 | **People** | The muster roll — mark the day, add workers, set day rates or monthly salaries |
@@ -204,6 +205,49 @@ handover checklist, are in [deploy/DEPLOY.md](deploy/DEPLOY.md).
 | `BHARGO_SITE_NAME` | Names this installation in alerts, for when you run several |
 | `PORT` | Port to listen on (default 3000) |
 
+## Who sells it cheaper
+
+Knowing a rate is too high is half an answer. The other half is who to ring
+instead, which is what the **Rates and suppliers** page keeps: one line per
+supplier per material — rods per kg, sand per cft, paint per litre — with the
+phone number, the area, the least quantity the rate holds for, and when it
+expires.
+
+Two things fill it:
+
+1. **Rates written down** — from a phone call, a rate list, a message.
+2. **Rates already paid.** Every confirmed bill is evidence of what that
+   supplier accepts, so the book keeps filling itself from work already being
+   done. These are marked *paid* rather than *quoted*, so nobody confuses the
+   two.
+
+From then on, a rate typed into a bill is checked against the cheapest usable
+rate on the books, and whoever is entering it reads something like:
+
+> **Bharat Supply is 21% cheaper on cement** — quoted Rs. 950 per bag (50kg) on
+> 2026-08-05. Buying this load there instead would save Rs. 68,800.
+
+The same line appears on the bill afterwards and in the owner's approval queue,
+so the decision is made with the alternative in front of them. A rate that has
+expired, or that needs a bigger load than the one being bought, is not offered —
+a suggestion that cannot be acted on is worse than none.
+
+The page also totals it: **what buying everything at the best known rate would
+have saved on this build**, ranked by material, with the supplier to call and
+their number beside each line.
+
+### What it will not do
+
+Bhargo cannot go and find local suppliers by itself. No service publishes what
+the cement shop down the road charges today, and a made-up "market rate" would
+be worse than nothing — it would be quoted at a supplier who could prove it
+wrong. What it does instead is make sure a rate collected once is never
+collected twice, and is put in front of whoever is about to pay more.
+
+The practical way to fill the page: ring three suppliers for the five materials
+that make up most of a build — cement, rods, sand, aggregate, bricks. Half an
+hour of calls, and every bill after it is measured against real local rates.
+
 ## Watching it without the company having to
 
 When something breaks, the person using Bhargo sees one sentence — *that did not
@@ -270,6 +314,7 @@ src/
   lib/
     variance.ts   build-to-build material comparison (the core arithmetic)
     pricecheck.ts one rate against your usual price — works from the first bill
+    sourcing.ts   the quote book: who sells it cheaper, and by how much
     monitor.ts    faults, recorded where the company never has to look
     payroll.ts    wage ledgers, labour cost per sq.ft, trade-by-trade comparison
     redflags.ts   checks that need only one build's own bills

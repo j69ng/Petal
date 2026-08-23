@@ -12,8 +12,10 @@ import {
   type PriceEntry,
   type Project,
   type Purchase,
+  type Quote,
   type RecordStatus,
   type Settings,
+  type Vendor,
   type Worker,
 } from "./types";
 
@@ -91,6 +93,28 @@ create table if not exists purchases (
   review_note text
 );
 
+-- Who sells to the company, and what they said they would charge.
+create table if not exists vendors (
+  name text primary key collate nocase,
+  phone text,
+  area text,
+  note text
+);
+
+create table if not exists quotes (
+  id integer primary key autoincrement,
+  vendor text not null collate nocase,
+  material_key text not null,
+  unit text not null,
+  rate real not null,
+  min_qty real,
+  delivery_included integer not null default 0,
+  quoted_on text not null,
+  valid_until text,
+  note text,
+  entered_by integer references users (id) on delete set null
+);
+
 -- Faults, kept where whoever maintains Bhargo can see them and the company
 -- using it never has to. No business data is written here — see monitor.ts.
 create table if not exists problems (
@@ -154,6 +178,7 @@ create index if not exists sessions_user_idx on sessions (user_id);
 create index if not exists purchases_status_idx on purchases (status);
 create index if not exists payments_status_idx on payments (status);
 create index if not exists attendance_status_idx on attendance (status);
+create index if not exists quotes_material_idx on quotes (material_key, rate);
 create index if not exists problems_seen_idx on problems (seen_at desc);
 create unique index if not exists problems_fingerprint_idx on problems (fingerprint);
 `;
@@ -496,4 +521,72 @@ export function recentRateFor(materialKey: string, lines = 5): { avgRate: number
   const amount = rows.reduce((sum, r) => sum + r.qty * r.rate + (r.freight ?? 0), 0);
   const qty = rows.reduce((sum, r) => sum + r.qty, 0);
   return qty > 0 ? { avgRate: amount / qty, lines: rows.length } : null;
+}
+
+// ---------- vendors and their quotes ----------
+
+export function listVendorRecords(): Vendor[] {
+  return db().prepare(`select * from vendors order by name`).all() as Vendor[];
+}
+
+export function saveVendor(vendor: Vendor): void {
+  db()
+    .prepare(
+      `insert into vendors (name, phone, area, note) values (@name, @phone, @area, @note)
+       on conflict (name) do update set phone = excluded.phone, area = excluded.area, note = excluded.note`
+    )
+    .run(vendor);
+}
+
+export function deleteVendor(name: string): void {
+  db().prepare(`delete from vendors where name = ?`).run(name);
+}
+
+export function listQuotes(materialKey?: string): Quote[] {
+  const sql = materialKey
+    ? `select * from quotes where material_key = ? order by rate`
+    : `select * from quotes order by material_key, rate`;
+  return (materialKey ? db().prepare(sql).all(materialKey) : db().prepare(sql).all()) as Quote[];
+}
+
+export function createQuote(quote: Omit<Quote, "id">): number {
+  const info = db()
+    .prepare(
+      `insert into quotes (vendor, material_key, unit, rate, min_qty, delivery_included,
+                           quoted_on, valid_until, note, entered_by)
+       values (@vendor, @material_key, @unit, @rate, @min_qty, @delivery_included,
+               @quoted_on, @valid_until, @note, @entered_by)`
+    )
+    .run(quote);
+  return Number(info.lastInsertRowid);
+}
+
+export function deleteQuote(id: number): void {
+  db().prepare(`delete from quotes where id = ?`).run(id);
+}
+
+/**
+ * The cheapest each vendor has actually charged, taken from confirmed bills.
+ * The quote book fills itself this way: every load bought is evidence of what
+ * that supplier will accept, whether or not anyone wrote a quote down.
+ */
+export function ratesPaidByVendor(sinceMonths = 12): {
+  vendor: string;
+  material_key: string;
+  unit: string;
+  rate: number;
+  purchased_on: string;
+}[] {
+  const since = new Date(Date.now() - sinceMonths * 30 * 86_400_000).toISOString().slice(0, 10);
+  return db()
+    .prepare(
+      `select vendor, material_key, unit,
+              min((qty * rate + freight) / qty) as rate,
+              max(purchased_on) as purchased_on
+       from purchases
+       where status = 'approved' and qty > 0 and vendor <> '' and purchased_on >= ?
+       group by vendor, material_key, unit
+       order by material_key, rate`
+    )
+    .all(since) as { vendor: string; material_key: string; unit: string; rate: number; purchased_on: string }[];
 }

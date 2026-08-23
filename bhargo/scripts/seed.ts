@@ -18,6 +18,8 @@ import {
   createPayment,
   markAttendance,
   savePriceEntry,
+  saveVendor,
+  createQuote,
 } from "../src/lib/db";
 import type { Draft, PaymentKind, Purchase, RecordStatus } from "../src/lib/types";
 
@@ -26,7 +28,7 @@ const database = db();
 // Wipe first so re-seeding doesn't stack duplicates on top of old sample data.
 database.exec(
   `delete from attendance; delete from payments; delete from purchases; delete from workers;
-   delete from projects; delete from price_book;`
+   delete from projects; delete from price_book; delete from quotes; delete from vendors;`
 );
 database.exec(`delete from sqlite_sequence where name in ('attendance','payments','purchases','workers','projects')`);
 
@@ -294,8 +296,59 @@ for (const [material_key, unit, usual_rate, note] of USUAL) {
 console.log("Seeded:");
 console.log(`  ${houseALines.length + houseBLines.length} material purchases across 2 builds`);
 console.log(`  ${people.length + 1} workers, attendance for both builds, wages and advances`);
+// ------------------------------------------------- who else sells this, and for how much
+//
+// Rates collected by ringing round. This is what turns "you are being
+// overcharged" into "Bharat Supply quoted 21% lower — here is the number".
+
+const SUPPLIERS: [string, string, string][] = [
+  ["Shree Traders", "98510-22114", "Hill Road"],
+  ["Bharat Supply", "98510-77320", "Station Road"],
+  ["Gopal Suppliers", "98450-11902", "Ram Nagar"],
+  ["Krishna Sand Supply", "98450-66218", "River Road"],
+  ["Lakshmi Bricks", "98230-40155", "Bypass"],
+  ["Bharat Steel", "98510-90043", "Station Road"],
+  ["Verma Timber", "98230-77410", "Old Bazaar"],
+  ["Ceramic House", "98510-33280", "Main Market"],
+];
+
+for (const [name, phone, area] of SUPPLIERS) {
+  saveVendor({ name, phone, area, note: null });
+}
+
+const QUOTES: [string, string, string, number, number | null, string | null][] = [
+  // vendor, material, unit, rate, least quantity, note
+  ["Bharat Supply", "cement", "bag (50kg)", 950, 200, "OPC 43 grade, delivered"],
+  ["Shree Traders", "cement", "bag (50kg)", 1150, null, "Current rate, gone up twice this year"],
+  ["Gopal Suppliers", "sand", "cft", 68, 500, "River sand, delivered"],
+  ["Krishna Sand Supply", "sand", "cft", 86, null, "Same grade, dearer"],
+  ["Bharat Steel", "steel", "kg", 118, null, "TMT 500D, all sizes"],
+  ["Gopal Suppliers", "aggregate", "cft", 70, 400, "20mm"],
+  ["Lakshmi Bricks", "bricks", "1000 nos", 15800, 5, "First class"],
+  ["Verma Timber", "timber", "cft", 2900, null, "Seasoned sal"],
+  ["Ceramic House", "tiles", "sqft", 88, null, "Mid range, 2x2"],
+  ["Bharat Supply", "paint", "litre", 445, 100, "Exterior emulsion"],
+];
+
+for (const [vendor, material_key, unit, rate, min_qty, note] of QUOTES) {
+  createQuote({
+    vendor,
+    material_key,
+    unit,
+    rate,
+    min_qty,
+    delivery_included: 1,
+    quoted_on: "2026-08-05",
+    valid_until: "2026-11-30",
+    note,
+    entered_by: null,
+  });
+}
+
 console.log(`  usual prices for ${USUAL.length} materials`);
+console.log(`  ${SUPPLIERS.length} suppliers and ${QUOTES.length} rates in the book`);
 console.log("");
 console.log("Sign in as the owner, then:");
 console.log("  /approvals  — the entries waiting to be confirmed before they count");
 console.log("  /compare    — the second build measured against the first");
+console.log("  /vendors    — who sells the same materials cheaper, and by how much");

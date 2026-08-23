@@ -2,10 +2,19 @@ import { removePurchase } from "@/lib/actions";
 import PurchaseForm from "@/components/PurchaseForm";
 import { Card, Empty, Pill } from "@/components/ui";
 import { isOwner, requireUser } from "@/lib/auth";
-import { getSettings, listPriceBook, listProjects, listPurchases, listVendors } from "@/lib/db";
+import {
+  getSettings,
+  listPriceBook,
+  listProjects,
+  listPurchases,
+  listQuotes,
+  listVendors,
+  ratesPaidByVendor,
+} from "@/lib/db";
 import { materialLabel } from "@/lib/materials";
 import { formatMoney, formatQty, formatRate } from "@/lib/money";
 import { checkAgainstUsual } from "@/lib/pricecheck";
+import { findAlternative, knownRates } from "@/lib/sourcing";
 import { lineAmount, rollupByMaterial } from "@/lib/variance";
 import type { Purchase } from "@/lib/types";
 
@@ -35,6 +44,7 @@ export default function PurchasesPage({ searchParams }: { searchParams: { projec
     projects[0];
 
   const priceBook = listPriceBook();
+  const rates = knownRates(listQuotes(), ratesPaidByVendor());
   const bookByKey = new Map(priceBook.map((entry) => [entry.material_key, entry]));
   const all = listPurchases({ projectId: selected.id, status: "all" });
   const confirmed = all.filter((p) => p.status === "approved");
@@ -74,6 +84,24 @@ export default function PurchasesPage({ searchParams }: { searchParams: { projec
             <div className="text-xs text-mute tabular-nums">{formatRate(purchase.rate)} per {purchase.unit}</div>
           </div>
         </div>
+
+        {(() => {
+          const cheaper = findAlternative(
+            {
+              materialKey: purchase.material_key,
+              rate: lineAmount(purchase) / (purchase.qty || 1),
+              qty: purchase.qty,
+              vendor: purchase.vendor,
+              onDate: purchase.purchased_on,
+            },
+            rates,
+            settings,
+            settings.currency
+          );
+          return cheaper ? (
+            <p className="text-xs text-ok mt-2">{cheaper.message}</p>
+          ) : null;
+        })()}
 
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {purchase.status === "pending" && <Pill kind="watch">waiting for owner</Pill>}
@@ -130,6 +158,7 @@ export default function PurchasesPage({ searchParams }: { searchParams: { projec
           defaultProjectId={selected.id}
           vendors={listVendors()}
           priceBook={priceBook}
+          knownRates={rates}
           settings={settings}
           needsApproval={!isOwner(user)}
         />

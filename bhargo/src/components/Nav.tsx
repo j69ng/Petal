@@ -15,6 +15,7 @@ const MAIN = [
 ];
 
 const MORE = [
+  { href: "/vendors", label: "Rates & suppliers" },
   { href: "/prices", label: "Usual prices" },
   { href: "/projects", label: "Builds" },
 ];

@@ -418,3 +418,60 @@ export const clearAllProblemsAction = reportable("clearAllProblemsAction", async
   monitor.clearAllProblems();
   redirect(`/diagnostics?key=${encodeURIComponent(str(form, "key"))}`);
 });
+
+// ------------------------------------------------------- vendors and quotes
+
+export const saveQuote = reportable("saveQuote", async (form: FormData) => {
+  const user = auth.requireUser();
+  const vendor = str(form, "vendor");
+  const material_key = str(form, "material_key");
+  const rate = num(form, "rate");
+  if (!vendor || !material_key || rate <= 0) return;
+
+  // A vendor named on a quote is a vendor worth keeping the number of.
+  if (!store.listVendorRecords().some((v) => v.name.toLowerCase() === vendor.toLowerCase())) {
+    store.saveVendor({ name: vendor, phone: nullable(form, "phone"), area: nullable(form, "area"), note: null });
+  }
+
+  store.createQuote({
+    vendor,
+    material_key,
+    unit: str(form, "unit") || material(material_key).unit,
+    rate,
+    min_qty: num(form, "min_qty") || null,
+    delivery_included: str(form, "delivery_included") === "1" ? 1 : 0,
+    quoted_on: str(form, "quoted_on") || new Date().toISOString().slice(0, 10),
+    valid_until: nullable(form, "valid_until"),
+    note: nullable(form, "note"),
+    entered_by: user.id,
+  });
+
+  refresh("/vendors", "/purchases");
+});
+
+export const removeQuote = reportable("removeQuote", async (form: FormData) => {
+  auth.requireUser();
+  store.deleteQuote(num(form, "id"));
+  refresh("/vendors", "/purchases");
+});
+
+export const saveVendorAction = reportable("saveVendorAction", async (form: FormData) => {
+  auth.requireUser();
+  const name = str(form, "name");
+  if (!name) return;
+
+  store.saveVendor({
+    name,
+    phone: nullable(form, "phone"),
+    area: nullable(form, "area"),
+    note: nullable(form, "note"),
+  });
+
+  refresh("/vendors");
+});
+
+export const removeVendorAction = reportable("removeVendorAction", async (form: FormData) => {
+  auth.requireOwner();
+  store.deleteVendor(str(form, "name"));
+  refresh("/vendors");
+});

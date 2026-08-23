@@ -6,6 +6,7 @@ import { addPurchase } from "@/lib/actions";
 import { MATERIALS, material } from "@/lib/materials";
 import { formatMoney } from "@/lib/money";
 import { checkAgainstUsual } from "@/lib/pricecheck";
+import { findAlternative, type KnownRate } from "@/lib/sourcing";
 import type { PriceEntry, Project, Settings } from "@/lib/types";
 
 /**
@@ -18,6 +19,7 @@ export default function PurchaseForm({
   defaultProjectId,
   vendors,
   priceBook,
+  knownRates,
   settings,
   needsApproval,
 }: {
@@ -25,6 +27,7 @@ export default function PurchaseForm({
   defaultProjectId: number;
   vendors: string[];
   priceBook: PriceEntry[];
+  knownRates: KnownRate[];
   settings: Settings;
   needsApproval: boolean;
 }) {
@@ -33,6 +36,7 @@ export default function PurchaseForm({
   const [qty, setQty] = useState("");
   const [rate, setRate] = useState("");
   const [freight, setFreight] = useState("");
+  const [vendor, setVendor] = useState("");
 
   const book = useMemo(() => new Map(priceBook.map((entry) => [entry.material_key, entry])), [priceBook]);
 
@@ -43,6 +47,16 @@ export default function PurchaseForm({
   const amount = qtyNum * rateNum + freightNum;
 
   const check = checkAgainstUsual(materialKey, landedRate, qtyNum, book.get(materialKey), settings, settings.currency);
+
+  // Someone else on the books who sells this cheaper — the answer to "so what
+  // do I do about it", offered at the moment it can still change the order.
+  const cheaper = findAlternative(
+    { materialKey, rate: landedRate, qty: qtyNum, vendor },
+    knownRates,
+    settings,
+    settings.currency
+  );
+
   const show = rateNum > 0;
 
   const tone =
@@ -164,10 +178,25 @@ export default function PurchaseForm({
         </div>
       )}
 
+      {cheaper && (
+        <div className="rounded border border-ok/40 bg-ok/10 px-3 py-2 text-sm">
+          <div className="font-medium text-ok">
+            {cheaper.best.vendor} is {cheaper.cheaperByPct.toFixed(0)}% cheaper
+          </div>
+          <div className="mt-0.5 text-ink/80">{cheaper.message}</div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <label className="block">
           <span className="label">Vendor</span>
-          <input name="vendor" list="vendors" className="input" />
+          <input
+            name="vendor"
+            list="vendors"
+            value={vendor}
+            onChange={(e) => setVendor(e.target.value)}
+            className="input"
+          />
           <datalist id="vendors">
             {vendors.map((v) => (
               <option key={v} value={v} />
