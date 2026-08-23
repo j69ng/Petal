@@ -115,7 +115,30 @@ in the service file, restart, then open `https://bhargo.yourdomain.com/setup`,
 type the key, and create the owner account. Remove the line afterwards and
 restart — once an owner exists the page is closed for good.
 
-### 7. Backups, before you hand over the password
+### 7. Know when it breaks, before they tell you
+
+Add to the service file:
+
+```
+Environment=BHARGO_OPS_KEY=another-long-random-string
+Environment=BHARGO_ALERT_WEBHOOK=https://hooks.slack.com/services/...
+Environment=BHARGO_SITE_NAME=Bhargo Construction
+```
+
+Then point a free uptime checker (UptimeRobot, BetterStack, Healthchecks.io) at
+`https://bhargo.yourdomain.com/api/health` every five minutes, alerting you on
+anything other than `ok`. That covers the server being down, and the database
+refusing a write while the server looks fine.
+
+Faults themselves land at `https://bhargo.yourdomain.com/diagnostics?key=…`.
+Bookmark it. The company never sees it and never needs to — they get a plain
+"that did not work" and a reference code, which is all you need to find the exact
+fault they hit.
+
+Once a week is enough: open diagnostics, fix anything that keeps coming back,
+clear the list.
+
+### 8. Backups, before you hand over the password
 
 ```bash
 sudo cp deploy/backup.sh /usr/local/bin/bhargo-backup
@@ -129,7 +152,7 @@ the copy opens, and keeps 30 days. Copy them off the server as well — a backup
 on the same machine does not survive that machine. `rclone` to any cloud storage
 is the usual answer.
 
-### 8. Updates later
+### 9. Updates later
 
 ```bash
 sudo -u bhargo /srv/bhargo/deploy/update.sh
@@ -160,6 +183,10 @@ What Bhargo needs from you on the day:
 6. **Where the backups go**, and how to restore one:
    `gunzip -c backup.db.gz > /var/lib/bhargo/bhargo.db` with the service stopped.
 7. **Who to call** and what you cover — see below.
+8. **That you can see faults but not their figures.** Tell them plainly: when
+   something breaks you get the error and the page it happened on, never their
+   bills, wages or rates. Better said by you on day one than discovered by them
+   later.
 
 ## Say plainly what you are and are not responsible for
 

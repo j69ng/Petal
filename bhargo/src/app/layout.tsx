@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import Nav from "@/components/Nav";
 import { currentUser, isOwner } from "@/lib/auth";
 import { pendingCounts } from "@/lib/db";
+import { installCrashHandlers } from "@/lib/monitor";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,6 +22,9 @@ export const viewport: Viewport = {
 };
 
 export const dynamic = "force-dynamic";
+
+// Runs once per server process, on the first render.
+installCrashHandlers();
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Nobody signed in means the sign-in or first-run page, which carries no nav.

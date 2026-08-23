@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 
 import * as store from "./db";
 import * as auth from "./auth";
+import * as monitor from "./monitor";
+import { reportable } from "./monitor";
 import { material } from "./materials";
 import type { PaymentKind, ProjectStatus, UserRole, WageType } from "./types";
 
@@ -36,7 +38,7 @@ function entryStatus(user: { id: number; role: string }): { status: "approved" |
 
 // ---------------------------------------------------------------- projects
 
-export async function addProject(form: FormData) {
+export const addProject = reportable("addProject", async (form: FormData) => {
   auth.requireUser();
   const name = str(form, "name");
   if (!name) return;
@@ -53,9 +55,9 @@ export async function addProject(form: FormData) {
 
   refresh("/projects", "/compare");
   redirect(`/projects?highlight=${id}`);
-}
+});
 
-export async function editProject(form: FormData) {
+export const editProject = reportable("editProject", async (form: FormData) => {
   auth.requireUser();
   const id = num(form, "id");
   const existing = store.getProject(id);
@@ -72,17 +74,17 @@ export async function editProject(form: FormData) {
   });
 
   refresh("/projects", "/compare");
-}
+});
 
-export async function removeProject(form: FormData) {
+export const removeProject = reportable("removeProject", async (form: FormData) => {
   auth.requireOwner();
   store.deleteProject(num(form, "id"));
   refresh("/projects", "/compare", "/purchases", "/payroll");
-}
+});
 
 // ---------------------------------------------------------------- workers
 
-export async function addWorker(form: FormData) {
+export const addWorker = reportable("addWorker", async (form: FormData) => {
   auth.requireUser();
   const name = str(form, "name");
   if (!name) return;
@@ -97,9 +99,9 @@ export async function addWorker(form: FormData) {
   });
 
   refresh("/people", "/payroll");
-}
+});
 
-export async function editWorker(form: FormData) {
+export const editWorker = reportable("editWorker", async (form: FormData) => {
   auth.requireUser();
   const id = num(form, "id");
   const existing = store.getWorker(id);
@@ -115,13 +117,13 @@ export async function editWorker(form: FormData) {
   });
 
   refresh("/people", "/payroll");
-}
+});
 
-export async function removeWorker(form: FormData) {
+export const removeWorker = reportable("removeWorker", async (form: FormData) => {
   auth.requireOwner();
   store.deleteWorker(num(form, "id"));
   refresh("/people", "/payroll");
-}
+});
 
 // ---------------------------------------------------------------- attendance
 
@@ -129,7 +131,7 @@ export async function removeWorker(form: FormData) {
  * Marks a whole day's muster in one go. The day rate is snapshotted onto each
  * row, so a later raise never rewrites what an old day cost.
  */
-export async function markDay(form: FormData) {
+export const markDay = reportable("markDay", async (form: FormData) => {
   const user = auth.requireUser();
   const project_id = num(form, "project_id");
   const work_date = str(form, "work_date");
@@ -160,17 +162,17 @@ export async function markDay(form: FormData) {
   }
 
   refresh("/people", "/payroll", "/compare");
-}
+});
 
-export async function removeAttendance(form: FormData) {
+export const removeAttendance = reportable("removeAttendance", async (form: FormData) => {
   auth.requireUser();
   store.deleteAttendance(num(form, "id"));
   refresh("/people", "/payroll", "/compare");
-}
+});
 
 // ---------------------------------------------------------------- payments
 
-export async function addPayment(form: FormData) {
+export const addPayment = reportable("addPayment", async (form: FormData) => {
   const user = auth.requireUser();
   const worker_id = num(form, "worker_id");
   const amount = num(form, "amount");
@@ -187,17 +189,17 @@ export async function addPayment(form: FormData) {
   });
 
   refresh("/payroll", "/people");
-}
+});
 
-export async function removePayment(form: FormData) {
+export const removePayment = reportable("removePayment", async (form: FormData) => {
   auth.requireUser();
   store.deletePayment(num(form, "id"));
   refresh("/payroll", "/people");
-}
+});
 
 // ---------------------------------------------------------------- purchases
 
-export async function addPurchase(form: FormData) {
+export const addPurchase = reportable("addPurchase", async (form: FormData) => {
   const user = auth.requireUser();
   const project_id = num(form, "project_id");
   const material_key = str(form, "material_key");
@@ -219,17 +221,17 @@ export async function addPurchase(form: FormData) {
   });
 
   refresh("/purchases", "/compare");
-}
+});
 
-export async function removePurchase(form: FormData) {
+export const removePurchase = reportable("removePurchase", async (form: FormData) => {
   auth.requireUser();
   store.deletePurchase(num(form, "id"));
   refresh("/purchases", "/compare");
-}
+});
 
 // ---------------------------------------------------------------- settings
 
-export async function saveSettingsAction(form: FormData) {
+export const saveSettingsAction = reportable("saveSettingsAction", async (form: FormData) => {
   auth.requireOwner();
   const current = store.getSettings();
 
@@ -243,12 +245,12 @@ export async function saveSettingsAction(form: FormData) {
   });
 
   refresh("/settings", "/compare", "/payroll");
-}
+});
 
 // ---------------------------------------------------------------- accounts
 
 /** First run: the owner account. Nobody can reach the books before this exists. */
-export async function createFirstOwner(form: FormData) {
+export const createFirstOwner = reportable("createFirstOwner", async (form: FormData) => {
   if (auth.userCount() > 0) redirect("/login");
 
   if (!auth.setupKeyMatches(str(form, "setup_key"))) {
@@ -266,9 +268,9 @@ export async function createFirstOwner(form: FormData) {
 
   await auth.signIn(str(form, "username"), String(form.get("password") ?? ""));
   redirect("/");
-}
+});
 
-export async function signInAction(form: FormData) {
+export const signInAction = reportable("signInAction", async (form: FormData) => {
   const username = str(form, "username");
   const next = str(form, "next");
   const result = await auth.signIn(username, String(form.get("password") ?? ""));
@@ -280,14 +282,14 @@ export async function signInAction(form: FormData) {
   }
 
   redirect(next && next.startsWith("/") ? next : "/");
-}
+});
 
-export async function signOutAction() {
+export const signOutAction = reportable("signOutAction", async () => {
   auth.signOut();
   redirect("/login");
-}
+});
 
-export async function createStaffUser(form: FormData) {
+export const createStaffUser = reportable("createStaffUser", async (form: FormData) => {
   auth.requireOwner();
 
   const result = await auth.createUser({
@@ -303,9 +305,9 @@ export async function createStaffUser(form: FormData) {
       ? `/users?ok=${encodeURIComponent(`${str(form, "name")} can now sign in.`)}`
       : `/users?error=${encodeURIComponent(result.error)}`
   );
-}
+});
 
-export async function changePassword(form: FormData) {
+export const changePassword = reportable("changePassword", async (form: FormData) => {
   auth.requireOwner();
 
   const password = String(form.get("password") ?? "");
@@ -318,9 +320,9 @@ export async function changePassword(form: FormData) {
       ? `/users?ok=${encodeURIComponent("Password changed. They will need to sign in again.")}`
       : `/users?error=${encodeURIComponent(result.error ?? "Could not change the password.")}`
   );
-}
+});
 
-export async function toggleUser(form: FormData) {
+export const toggleUser = reportable("toggleUser", async (form: FormData) => {
   const owner = auth.requireOwner();
   const id = num(form, "id");
   if (id === owner.id) redirect(`/users?error=${encodeURIComponent("You cannot switch off your own account.")}`);
@@ -328,9 +330,9 @@ export async function toggleUser(form: FormData) {
   auth.setUserActive(id, str(form, "active") === "1");
   refresh("/users");
   redirect("/users");
-}
+});
 
-export async function removeUser(form: FormData) {
+export const removeUser = reportable("removeUser", async (form: FormData) => {
   const owner = auth.requireOwner();
   const id = num(form, "id");
   if (id === owner.id) redirect(`/users?error=${encodeURIComponent("You cannot delete your own account.")}`);
@@ -338,24 +340,24 @@ export async function removeUser(form: FormData) {
   auth.deleteUser(id);
   refresh("/users");
   redirect("/users");
-}
+});
 
 // ------------------------------------------------------- the owner's confirmation
 
-export async function approveRecord(form: FormData) {
+export const approveRecord = reportable("approveRecord", async (form: FormData) => {
   const owner = auth.requireOwner();
   store.approveRecord(str(form, "table"), num(form, "id"), owner.id);
   refresh("/approvals", "/purchases", "/payroll", "/people", "/compare");
-}
+});
 
-export async function rejectRecord(form: FormData) {
+export const rejectRecord = reportable("rejectRecord", async (form: FormData) => {
   const owner = auth.requireOwner();
   store.rejectRecord(str(form, "table"), num(form, "id"), owner.id, nullable(form, "note"));
   refresh("/approvals", "/purchases", "/payroll", "/people", "/compare");
-}
+});
 
 /** Confirm everything on the list in one go, for a day of routine entries. */
-export async function approveAll(form: FormData) {
+export const approveAll = reportable("approveAll", async (form: FormData) => {
   const owner = auth.requireOwner();
   const table = str(form, "table");
   const ids = String(form.get("ids") ?? "")
@@ -365,11 +367,11 @@ export async function approveAll(form: FormData) {
 
   for (const id of ids) store.approveRecord(table, id, owner.id);
   refresh("/approvals", "/purchases", "/payroll", "/people", "/compare");
-}
+});
 
 // ---------------------------------------------------------------- price book
 
-export async function savePrice(form: FormData) {
+export const savePrice = reportable("savePrice", async (form: FormData) => {
   // The yardstick is the owner's to set — if staff could move it, an overcharge
   // could be made to look normal.
   const user = auth.requireOwner();
@@ -386,10 +388,33 @@ export async function savePrice(form: FormData) {
   });
 
   refresh("/prices", "/purchases");
-}
+});
 
-export async function removePrice(form: FormData) {
+export const removePrice = reportable("removePrice", async (form: FormData) => {
   auth.requireOwner();
   store.deletePriceEntry(str(form, "material_key"));
   refresh("/prices", "/purchases");
+});
+
+// ---------------------------------------------------------------- diagnostics
+
+/**
+ * Clearing faults is the maintainer's business, so these check the ops key
+ * rather than an account — the company's owner never sees this page.
+ */
+function requireOpsKey(form: FormData): void {
+  const expected = process.env.BHARGO_OPS_KEY?.trim();
+  if (!expected || str(form, "key") !== expected) redirect("/");
 }
+
+export const clearProblemAction = reportable("clearProblemAction", async (form: FormData) => {
+  requireOpsKey(form);
+  monitor.clearProblem(num(form, "id"));
+  redirect(`/diagnostics?key=${encodeURIComponent(str(form, "key"))}`);
+});
+
+export const clearAllProblemsAction = reportable("clearAllProblemsAction", async (form: FormData) => {
+  requireOpsKey(form);
+  monitor.clearAllProblems();
+  redirect(`/diagnostics?key=${encodeURIComponent(str(form, "key"))}`);
+});

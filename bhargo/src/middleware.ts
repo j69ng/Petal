@@ -5,7 +5,16 @@ import { NextResponse, type NextRequest } from "next/server";
 // present — every page and form handler still validates the session properly
 // through requireUser(). Belt and braces, in that order.
 
-const PUBLIC_PATHS = ["/login", "/setup"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/setup",
+  // Answers an uptime checker that has no account and never will.
+  "/api/health",
+  // The error boundary posts here from a page that may itself have failed.
+  "/api/report",
+  // Guarded by BHARGO_OPS_KEY instead of a session — see diagnostics/page.tsx.
+  "/diagnostics",
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

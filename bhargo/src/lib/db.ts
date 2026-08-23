@@ -91,6 +91,22 @@ create table if not exists purchases (
   review_note text
 );
 
+-- Faults, kept where whoever maintains Bhargo can see them and the company
+-- using it never has to. No business data is written here — see monitor.ts.
+create table if not exists problems (
+  id integer primary key autoincrement,
+  ref text not null,
+  fingerprint text not null,
+  kind text not null,
+  route text,
+  message text not null,
+  stack text,
+  user_id integer,
+  digest text,
+  seen_at text not null,
+  count integer not null default 1
+);
+
 -- What each material normally costs, so a bill can be judged the day it arrives.
 create table if not exists price_book (
   material_key text primary key,
@@ -138,6 +154,8 @@ create index if not exists sessions_user_idx on sessions (user_id);
 create index if not exists purchases_status_idx on purchases (status);
 create index if not exists payments_status_idx on payments (status);
 create index if not exists attendance_status_idx on attendance (status);
+create index if not exists problems_seen_idx on problems (seen_at desc);
+create unique index if not exists problems_fingerprint_idx on problems (fingerprint);
 `;
 
 type Db = InstanceType<typeof Database>;

@@ -199,7 +199,45 @@ handover checklist, are in [deploy/DEPLOY.md](deploy/DEPLOY.md).
 | `BHARGO_DB` | Where the database file lives (default `data/bhargo.db`) |
 | `BHARGO_SECURE_COOKIES` | Set to `1` when serving over HTTPS, so the session cookie is HTTPS-only |
 | `BHARGO_SETUP_KEY` | Locks the first-run page. Without it, a fresh public deployment hands the owner account to whoever opens it first |
+| `BHARGO_OPS_KEY` | Opens `/diagnostics`. Unset, that page does not exist |
+| `BHARGO_ALERT_WEBHOOK` | Slack or Discord webhook for new faults |
+| `BHARGO_SITE_NAME` | Names this installation in alerts, for when you run several |
 | `PORT` | Port to listen on (default 3000) |
+
+## Watching it without the company having to
+
+When something breaks, the person using Bhargo sees one sentence — *that did not
+work, nothing you entered has been lost* — and a six-character reference. No
+stack trace, no jargon, nothing to interpret. The details go elsewhere, in the
+same moment.
+
+Whoever maintains Bhargo gets three things:
+
+- **`/diagnostics?key=…`** — every fault, newest first, with its stack, the route,
+  the account that hit it and how many times it has happened. Guarded by
+  `BHARGO_OPS_KEY`, linked from nowhere, and invisible without the key. It is
+  built to survive the breakage it reports: a missing table shows as
+  *unreadable* rather than taking the page down with it.
+- **`/api/health`** — for an uptime checker to ping every few minutes. It answers
+  `ok` only if the database still takes a write, which catches the failure that
+  otherwise goes unnoticed until someone loses an afternoon of entries.
+- **`BHARGO_ALERT_WEBHOOK`** — a Slack or Discord webhook. A new fault sends one
+  line: what broke, where, and its reference. Repeats are held back for fifteen
+  minutes, so a loop cannot flood the channel.
+
+A page failure is reported twice — once from the server, which knows the real
+message, and once from the browser, which only has the line Next redacts. Both
+carry the same digest, so they are joined into one fault with the useful message.
+
+**What is recorded, and what is not.** The route, the error, the stack, the
+account id. Never form values, never rows from the books, never a name.
+Passwords, tokens and hashes are cut out of any text before it is written down.
+The webhook carries less again — a one-line summary, no data. All of it stays in
+the company's own database, on their own server; nothing is sent anywhere you
+have not configured yourself.
+
+Say this out loud when you hand it over. "I can see when it breaks, and I cannot
+see your figures" is a sentence worth being able to say honestly.
 
 ## Things worth knowing
 
@@ -232,6 +270,7 @@ src/
   lib/
     variance.ts   build-to-build material comparison (the core arithmetic)
     pricecheck.ts one rate against your usual price — works from the first bill
+    monitor.ts    faults, recorded where the company never has to look
     payroll.ts    wage ledgers, labour cost per sq.ft, trade-by-trade comparison
     redflags.ts   checks that need only one build's own bills
     materials.ts  material catalog and how fast each one normally moves
