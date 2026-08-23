@@ -26,7 +26,9 @@ export default function PayrollPage({
   const ledger = payrollLedger(workers, attendance, payments, settings);
 
   const earned = ledger.reduce((s, l) => s + l.earned, 0);
-  const paid = ledger.reduce((s, l) => s + l.settledAgainstWages, 0);
+  const advances = ledger.reduce((s, l) => s + l.advancePaid, 0);
+  const wagesPaid = ledger.reduce((s, l) => s + l.wagePaid, 0);
+  const paid = advances + wagesPaid;
   const owed = ledger.reduce((s, l) => s + Math.max(l.balance, 0), 0);
   const drawnAhead = ledger.reduce((s, l) => s + Math.min(l.balance, 0), 0);
   const workerName = new Map(workers.map((w) => [w.id, w.name]));
@@ -135,8 +137,8 @@ export default function PayrollPage({
                 <tr className="bg-paper font-medium">
                   <td className="td" colSpan={6}>Total</td>
                   <td className="td num">{money(earned)}</td>
-                  <td className="td" />
-                  <td className="td num">{money(paid)}</td>
+                  <td className="td num">{money(advances)}</td>
+                  <td className="td num">{money(wagesPaid)}</td>
                   <td className="td num">{money(earned - paid)}</td>
                 </tr>
               </tfoot>
