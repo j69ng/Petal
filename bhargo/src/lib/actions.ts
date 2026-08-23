@@ -23,7 +23,15 @@ function nullable(form: FormData, key: string): string | null {
 }
 
 function refresh(...paths: string[]) {
-  for (const path of ["/", ...paths]) revalidatePath(path);
+  for (const path of ["/", ...paths, "/approvals"]) revalidatePath(path);
+}
+
+/**
+ * The owner confirming their own entry would be theatre, so what they record is
+ * already confirmed. Everyone else's work waits for them.
+ */
+function entryStatus(user: { id: number; role: string }): { status: "approved" | "pending"; entered_by: number } {
+  return { status: user.role === "owner" ? "approved" : "pending", entered_by: user.id };
 }
 
 // ---------------------------------------------------------------- projects
@@ -122,7 +130,7 @@ export async function removeWorker(form: FormData) {
  * row, so a later raise never rewrites what an old day cost.
  */
 export async function markDay(form: FormData) {
-  auth.requireUser();
+  const user = auth.requireUser();
   const project_id = num(form, "project_id");
   const work_date = str(form, "work_date");
   if (!project_id || !work_date) return;
@@ -140,7 +148,15 @@ export async function markDay(form: FormData) {
         ? worker.rate / (settings.working_days_per_month || 26)
         : worker.rate;
 
-    store.markAttendance({ project_id, worker_id: worker.id, work_date, days, ot_hours, day_rate: dayRate });
+    store.markAttendance({
+      project_id,
+      worker_id: worker.id,
+      work_date,
+      days,
+      ot_hours,
+      day_rate: dayRate,
+      ...entryStatus(user),
+    });
   }
 
   refresh("/people", "/payroll", "/compare");
@@ -155,7 +171,7 @@ export async function removeAttendance(form: FormData) {
 // ---------------------------------------------------------------- payments
 
 export async function addPayment(form: FormData) {
-  auth.requireUser();
+  const user = auth.requireUser();
   const worker_id = num(form, "worker_id");
   const amount = num(form, "amount");
   if (!worker_id || amount <= 0) return;
@@ -167,6 +183,7 @@ export async function addPayment(form: FormData) {
     amount,
     kind: (str(form, "kind") || "wage") as PaymentKind,
     note: nullable(form, "note"),
+    ...entryStatus(user),
   });
 
   refresh("/payroll", "/people");
@@ -181,7 +198,7 @@ export async function removePayment(form: FormData) {
 // ---------------------------------------------------------------- purchases
 
 export async function addPurchase(form: FormData) {
-  auth.requireUser();
+  const user = auth.requireUser();
   const project_id = num(form, "project_id");
   const material_key = str(form, "material_key");
   const qty = num(form, "qty");
@@ -198,6 +215,7 @@ export async function addPurchase(form: FormData) {
     invoice_no: nullable(form, "invoice_no"),
     purchased_on: str(form, "purchased_on") || new Date().toISOString().slice(0, 10),
     note: nullable(form, "note"),
+    ...entryStatus(user),
   });
 
   refresh("/purchases", "/compare");
@@ -316,4 +334,58 @@ export async function removeUser(form: FormData) {
   auth.deleteUser(id);
   refresh("/users");
   redirect("/users");
+}
+
+// ------------------------------------------------------- the owner's confirmation
+
+export async function approveRecord(form: FormData) {
+  const owner = auth.requireOwner();
+  store.approveRecord(str(form, "table"), num(form, "id"), owner.id);
+  refresh("/approvals", "/purchases", "/payroll", "/people", "/compare");
+}
+
+export async function rejectRecord(form: FormData) {
+  const owner = auth.requireOwner();
+  store.rejectRecord(str(form, "table"), num(form, "id"), owner.id, nullable(form, "note"));
+  refresh("/approvals", "/purchases", "/payroll", "/people", "/compare");
+}
+
+/** Confirm everything on the list in one go, for a day of routine entries. */
+export async function approveAll(form: FormData) {
+  const owner = auth.requireOwner();
+  const table = str(form, "table");
+  const ids = String(form.get("ids") ?? "")
+    .split(",")
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id) && id > 0);
+
+  for (const id of ids) store.approveRecord(table, id, owner.id);
+  refresh("/approvals", "/purchases", "/payroll", "/people", "/compare");
+}
+
+// ---------------------------------------------------------------- price book
+
+export async function savePrice(form: FormData) {
+  // The yardstick is the owner's to set — if staff could move it, an overcharge
+  // could be made to look normal.
+  const user = auth.requireOwner();
+  const material_key = str(form, "material_key");
+  const usual_rate = num(form, "usual_rate");
+  if (!material_key || usual_rate <= 0) return;
+
+  store.savePriceEntry({
+    material_key,
+    unit: str(form, "unit") || material(material_key).unit,
+    usual_rate,
+    note: nullable(form, "note"),
+    updated_by: user.id,
+  });
+
+  refresh("/prices", "/purchases");
+}
+
+export async function removePrice(form: FormData) {
+  auth.requireOwner();
+  store.deletePriceEntry(str(form, "material_key"));
+  refresh("/prices", "/purchases");
 }

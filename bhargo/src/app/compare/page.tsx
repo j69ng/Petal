@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { requireUser } from "@/lib/auth";
 import { Card, Empty, Pill, Stat } from "@/components/ui";
-import { getSettings, listAttendance, listProjects, listPurchases, listWorkers } from "@/lib/db";
+import { getSettings, listAttendance, listProjects, listPurchases, listWorkers, pendingCounts } from "@/lib/db";
 import { formatMoney, formatPct, formatQty, formatRate, formatShort } from "@/lib/money";
 import { compareLabour, labourSummary } from "@/lib/payroll";
 import { detectRedFlags } from "@/lib/redflags";
@@ -59,6 +59,7 @@ export default function ComparePage({
   );
 
   const flags = detectRedFlags(currentPurchases);
+  const waiting = pendingCounts();
   const inProgress = current.status !== "done";
   const money = (n: number) => formatMoney(Math.round(n), settings.currency);
 
@@ -75,7 +76,7 @@ export default function ComparePage({
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Is this build costing more than the last one?</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">Is this build costing more than the last one?</h1>
           <p className="text-mute text-sm mt-1 max-w-2xl">
             Every figure below scales <strong>{base.name}</strong> up to {current.name}&rsquo;s floor
             area and ages its prices forward at normal market drift. What is left over is the part
@@ -83,8 +84,8 @@ export default function ComparePage({
           </p>
         </div>
 
-        <form className="flex flex-wrap items-end gap-2 no-print" method="get">
-          <label className="text-xs text-mute">
+        <form className="w-full lg:w-auto flex flex-wrap items-end gap-2 no-print" method="get">
+          <label className="text-xs text-mute flex-1 min-w-[10rem]">
             <span className="block mb-1">Measure against</span>
             <select name="base" defaultValue={base.id} className="input">
               {projects.map((p) => (
@@ -94,7 +95,7 @@ export default function ComparePage({
               ))}
             </select>
           </label>
-          <label className="text-xs text-mute">
+          <label className="text-xs text-mute flex-1 min-w-[10rem]">
             <span className="block mb-1">This build</span>
             <select name="current" defaultValue={current.id} className="input">
               {projects.map((p) => (
@@ -146,6 +147,13 @@ export default function ComparePage({
         />
       </div>
 
+      {waiting.total > 0 && (
+        <p className="text-sm bg-brandsoft border border-line rounded px-4 py-3">
+          {waiting.total} entr{waiting.total === 1 ? "y is" : "ies are"} still waiting to be confirmed
+          and are not counted anywhere below.
+        </p>
+      )}
+
       {inProgress && (
         <p className="text-sm bg-brandsoft border border-line rounded px-4 py-3">
           <strong>{current.name} is still being built.</strong> Quantities below are compared against
@@ -160,8 +168,8 @@ export default function ComparePage({
         title="Material by material"
         subtitle={`Fair rate = ${base.name}'s rate aged forward at each material's own drift. Expected quantity = what ${base.name} used, scaled to ${current.area_sqft} sq.ft${progressPct !== 100 ? ` and ${progressPct}% built` : ""}.`}
       >
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <div className="scroll-x">
+          <table className="w-full border-collapse min-w-[48rem]">
             <thead>
               <tr>
                 <th className="th">Material</th>
@@ -267,8 +275,8 @@ export default function ComparePage({
             No attendance recorded on this build yet.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="scroll-x">
+            <table className="w-full border-collapse min-w-[48rem]">
               <thead>
                 <tr>
                   <th className="th">Trade</th>
@@ -316,7 +324,14 @@ export default function ComparePage({
           </div>
         )}
         <div className="px-4 py-3 text-xs text-mute border-t border-line">
-          {inProgress && (
+          {waiting.total > 0 && (
+        <p className="text-sm bg-brandsoft border border-line rounded px-4 py-3">
+          {waiting.total} entr{waiting.total === 1 ? "y is" : "ies are"} still waiting to be confirmed
+          and are not counted anywhere below.
+        </p>
+      )}
+
+      {inProgress && (
             <p className="mb-1">
               {current.name} is not finished, so man-days below the expected line usually just mean
               work still to come. The day rates are the part to read today.

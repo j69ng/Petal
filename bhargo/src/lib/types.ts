@@ -2,6 +2,33 @@
 // work on them and the materials bought for them.
 
 export type ProjectStatus = "planning" | "active" | "done";
+
+/**
+ * Money records enter the books unconfirmed. Only what the owner has confirmed
+ * counts as history — everything else is a claim waiting to be checked.
+ */
+export type RecordStatus = "pending" | "approved" | "rejected";
+
+/**
+ * A record as it is written: the review fields are the app's business, not the
+ * caller's, so only `status` is worth passing in (the owner's own entries land
+ * approved, everyone else's pending).
+ */
+export type Draft<T extends Reviewable> = Omit<
+  T,
+  "id" | "status" | "reviewed_by" | "reviewed_at" | "review_note"
+> & { status?: RecordStatus };
+
+/** Fields every record that needs the owner's confirmation carries. */
+export interface Reviewable {
+  status: RecordStatus;
+  /** Account that entered it. */
+  entered_by: number | null;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  /** Why it was sent back, in the owner's words. */
+  review_note: string | null;
+}
 export type WageType = "daily" | "monthly";
 export type PaymentKind = "advance" | "wage" | "bonus";
 
@@ -29,7 +56,7 @@ export interface Worker {
   active: 0 | 1;
 }
 
-export interface Attendance {
+export interface Attendance extends Reviewable {
   id: number;
   project_id: number;
   worker_id: number;
@@ -46,7 +73,7 @@ export interface Attendance {
   day_rate: number | null;
 }
 
-export interface Payment {
+export interface Payment extends Reviewable {
   id: number;
   worker_id: number;
   project_id: number | null;
@@ -56,7 +83,7 @@ export interface Payment {
   note: string | null;
 }
 
-export interface Purchase {
+export interface Purchase extends Reviewable {
   id: number;
   project_id: number;
   material_key: string;
@@ -90,6 +117,21 @@ export interface Session {
   user_id: number;
   created_at: string;
   expires_at: string;
+}
+
+/**
+ * What a material normally costs, in the owner's own judgement. This is the
+ * yardstick a bill can be measured against the moment it is entered — before
+ * any second build exists to compare with.
+ */
+export interface PriceEntry {
+  material_key: string;
+  unit: string;
+  usual_rate: number;
+  /** Where the figure came from: a quotation, the last load, the market. */
+  note: string | null;
+  updated_at: string;
+  updated_by: number | null;
 }
 
 export interface Settings {

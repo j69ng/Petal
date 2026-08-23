@@ -19,6 +19,7 @@ function purchase(over: Partial<Purchase>): Purchase {
   return {
     id: 1, project_id: 1, material_key: "cement", unit: "bag (50kg)", qty: 100, rate: 800,
     freight: 0, vendor: "Vendor A", invoice_no: "1", purchased_on: "2023-01-01", note: null,
+    status: "approved", entered_by: null, reviewed_by: null, reviewed_at: null, review_note: null,
     ...over,
   };
 }

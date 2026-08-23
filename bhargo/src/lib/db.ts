@@ -4,7 +4,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { DEFAULT_SETTINGS, type Attendance, type Payment, type Project, type Purchase, type Settings, type Worker } from "./types";
+import {
+  DEFAULT_SETTINGS,
+  type Attendance,
+  type Draft,
+  type Payment,
+  type PriceEntry,
+  type Project,
+  type Purchase,
+  type RecordStatus,
+  type Settings,
+  type Worker,
+} from "./types";
 
 const DB_PATH = process.env.BHARGO_DB ?? path.join(process.cwd(), "data", "bhargo.db");
 
@@ -38,6 +49,11 @@ create table if not exists attendance (
   days real not null default 1,
   ot_hours real not null default 0,
   day_rate real,
+  status text not null default 'approved' check (status in ('pending','approved','rejected')),
+  entered_by integer references users (id) on delete set null,
+  reviewed_by integer references users (id) on delete set null,
+  reviewed_at text,
+  review_note text,
   unique (project_id, worker_id, work_date)
 );
 
@@ -48,7 +64,12 @@ create table if not exists payments (
   paid_on text not null,
   amount real not null,
   kind text not null default 'wage' check (kind in ('advance','wage','bonus')),
-  note text
+  note text,
+  status text not null default 'approved' check (status in ('pending','approved','rejected')),
+  entered_by integer references users (id) on delete set null,
+  reviewed_by integer references users (id) on delete set null,
+  reviewed_at text,
+  review_note text
 );
 
 create table if not exists purchases (
@@ -62,7 +83,22 @@ create table if not exists purchases (
   vendor text not null default '',
   invoice_no text,
   purchased_on text not null,
-  note text
+  note text,
+  status text not null default 'approved' check (status in ('pending','approved','rejected')),
+  entered_by integer references users (id) on delete set null,
+  reviewed_by integer references users (id) on delete set null,
+  reviewed_at text,
+  review_note text
+);
+
+-- What each material normally costs, so a bill can be judged the day it arrives.
+create table if not exists price_book (
+  material_key text primary key,
+  unit text not null,
+  usual_rate real not null,
+  note text,
+  updated_at text not null,
+  updated_by integer references users (id) on delete set null
 );
 
 create table if not exists users (
@@ -99,6 +135,9 @@ create index if not exists payments_worker_idx on payments (worker_id, paid_on);
 create index if not exists purchases_project_idx on purchases (project_id, purchased_on);
 create index if not exists purchases_material_idx on purchases (material_key);
 create index if not exists sessions_user_idx on sessions (user_id);
+create index if not exists purchases_status_idx on purchases (status);
+create index if not exists payments_status_idx on payments (status);
+create index if not exists attendance_status_idx on attendance (status);
 `;
 
 type Db = InstanceType<typeof Database>;
@@ -108,12 +147,38 @@ declare global {
   var __bhargoDb: Db | undefined;
 }
 
+/**
+ * Brings an older database up to date. `create table if not exists` cannot add
+ * a column to a table that already exists, so anything added after the first
+ * release is applied here. Existing rows count as already confirmed — they were
+ * entered before there was anything to confirm.
+ */
+function migrate(db: Db): void {
+  const REVIEW_COLUMNS: Record<string, string> = {
+    status: "text not null default 'approved'",
+    entered_by: "integer",
+    reviewed_by: "integer",
+    reviewed_at: "text",
+    review_note: "text",
+  };
+
+  for (const table of ["purchases", "payments", "attendance"]) {
+    const existing = new Set(
+      (db.prepare(`pragma table_info(${table})`).all() as { name: string }[]).map((c) => c.name)
+    );
+    for (const [column, definition] of Object.entries(REVIEW_COLUMNS)) {
+      if (!existing.has(column)) db.exec(`alter table ${table} add column ${column} ${definition}`);
+    }
+  }
+}
+
 function open(): Db {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   const db = new Database(DB_PATH);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.exec(SCHEMA);
+  migrate(db);
   db.prepare(
     `insert or ignore into settings (id, currency, inflation_pct, watch_pct, alert_pct, qty_watch_pct, working_days_per_month)
      values (1, @currency, @inflation_pct, @watch_pct, @alert_pct, @qty_watch_pct, @working_days_per_month)`
@@ -217,9 +282,17 @@ export function deleteWorker(id: number): void {
 
 // ---------- attendance ----------
 
-export function listAttendance(filter: { projectId?: number; workerId?: number; from?: string; to?: string } = {}): Attendance[] {
+/**
+ * Confirmed rows only, unless asked otherwise — every figure the app reports is
+ * meant to be one the owner has stood behind.
+ */
+export function listAttendance(
+  filter: { projectId?: number; workerId?: number; from?: string; to?: string; status?: RecordStatus | "all" } = {}
+): Attendance[] {
   const where: string[] = [];
   const params: Record<string, unknown> = {};
+  const status = filter.status ?? "approved";
+  if (status !== "all") { where.push(`status = @status`); params.status = status; }
   if (filter.projectId) { where.push(`project_id = @projectId`); params.projectId = filter.projectId; }
   if (filter.workerId) { where.push(`worker_id = @workerId`); params.workerId = filter.workerId; }
   if (filter.from) { where.push(`work_date >= @from`); params.from = filter.from; }
@@ -228,16 +301,22 @@ export function listAttendance(filter: { projectId?: number; workerId?: number; 
   return db().prepare(sql).all(params) as Attendance[];
 }
 
-/** Marking the same worker on the same day twice overwrites rather than double-pays. */
-export function markAttendance(a: Omit<Attendance, "id">): void {
+/**
+ * Marking the same worker on the same day twice overwrites rather than
+ * double-pays. A correction resets the review: an already-confirmed day that is
+ * changed goes back to the owner.
+ */
+export function markAttendance(a: Draft<Attendance>): void {
   db()
     .prepare(
-      `insert into attendance (project_id, worker_id, work_date, days, ot_hours, day_rate)
-       values (@project_id, @worker_id, @work_date, @days, @ot_hours, @day_rate)
+      `insert into attendance (project_id, worker_id, work_date, days, ot_hours, day_rate, status, entered_by)
+       values (@project_id, @worker_id, @work_date, @days, @ot_hours, @day_rate, @status, @entered_by)
        on conflict (project_id, worker_id, work_date)
-       do update set days = excluded.days, ot_hours = excluded.ot_hours, day_rate = excluded.day_rate`
+       do update set days = excluded.days, ot_hours = excluded.ot_hours, day_rate = excluded.day_rate,
+                     status = excluded.status, entered_by = excluded.entered_by,
+                     reviewed_by = null, reviewed_at = null, review_note = null`
     )
-    .run(a);
+    .run({ ...a, status: a.status ?? "pending" });
 }
 
 export function deleteAttendance(id: number): void {
@@ -246,9 +325,13 @@ export function deleteAttendance(id: number): void {
 
 // ---------- payments ----------
 
-export function listPayments(filter: { workerId?: number; projectId?: number; from?: string; to?: string } = {}): Payment[] {
+export function listPayments(
+  filter: { workerId?: number; projectId?: number; from?: string; to?: string; status?: RecordStatus | "all" } = {}
+): Payment[] {
   const where: string[] = [];
   const params: Record<string, unknown> = {};
+  const status = filter.status ?? "approved";
+  if (status !== "all") { where.push(`status = @status`); params.status = status; }
   if (filter.workerId) { where.push(`worker_id = @workerId`); params.workerId = filter.workerId; }
   if (filter.projectId) { where.push(`project_id = @projectId`); params.projectId = filter.projectId; }
   if (filter.from) { where.push(`paid_on >= @from`); params.from = filter.from; }
@@ -257,13 +340,13 @@ export function listPayments(filter: { workerId?: number; projectId?: number; fr
   return db().prepare(sql).all(params) as Payment[];
 }
 
-export function createPayment(p: Omit<Payment, "id">): number {
+export function createPayment(p: Draft<Payment>): number {
   const info = db()
     .prepare(
-      `insert into payments (worker_id, project_id, paid_on, amount, kind, note)
-       values (@worker_id, @project_id, @paid_on, @amount, @kind, @note)`
+      `insert into payments (worker_id, project_id, paid_on, amount, kind, note, status, entered_by)
+       values (@worker_id, @project_id, @paid_on, @amount, @kind, @note, @status, @entered_by)`
     )
-    .run(p);
+    .run({ ...p, status: p.status ?? "pending" });
   return Number(info.lastInsertRowid);
 }
 
@@ -273,22 +356,28 @@ export function deletePayment(id: number): void {
 
 // ---------- purchases ----------
 
-export function listPurchases(filter: { projectId?: number; materialKey?: string } = {}): Purchase[] {
+export function listPurchases(
+  filter: { projectId?: number; materialKey?: string; status?: RecordStatus | "all" } = {}
+): Purchase[] {
   const where: string[] = [];
   const params: Record<string, unknown> = {};
+  const status = filter.status ?? "approved";
+  if (status !== "all") { where.push(`status = @status`); params.status = status; }
   if (filter.projectId) { where.push(`project_id = @projectId`); params.projectId = filter.projectId; }
   if (filter.materialKey) { where.push(`material_key = @materialKey`); params.materialKey = filter.materialKey; }
   const sql = `select * from purchases ${where.length ? `where ${where.join(" and ")}` : ""} order by purchased_on desc, id desc`;
   return db().prepare(sql).all(params) as Purchase[];
 }
 
-export function createPurchase(p: Omit<Purchase, "id">): number {
+export function createPurchase(p: Draft<Purchase>): number {
   const info = db()
     .prepare(
-      `insert into purchases (project_id, material_key, unit, qty, rate, freight, vendor, invoice_no, purchased_on, note)
-       values (@project_id, @material_key, @unit, @qty, @rate, @freight, @vendor, @invoice_no, @purchased_on, @note)`
+      `insert into purchases (project_id, material_key, unit, qty, rate, freight, vendor, invoice_no,
+                              purchased_on, note, status, entered_by)
+       values (@project_id, @material_key, @unit, @qty, @rate, @freight, @vendor, @invoice_no,
+               @purchased_on, @note, @status, @entered_by)`
     )
-    .run(p);
+    .run({ ...p, status: p.status ?? "pending" });
   return Number(info.lastInsertRowid);
 }
 
@@ -301,4 +390,92 @@ export function listVendors(): string[] {
     .prepare(`select distinct vendor from purchases where vendor <> '' order by vendor`)
     .all() as { vendor: string }[];
   return rows.map((r) => r.vendor);
+}
+
+// ---------- the owner's confirmation ----------
+
+export type ReviewableTable = "purchases" | "payments" | "attendance";
+
+const REVIEWABLE_TABLES: ReviewableTable[] = ["purchases", "payments", "attendance"];
+
+function assertTable(table: string): asserts table is ReviewableTable {
+  // The table name goes into SQL as a literal, so it can only ever be one of ours.
+  if (!REVIEWABLE_TABLES.includes(table as ReviewableTable)) {
+    throw new Error(`Not a reviewable table: ${table}`);
+  }
+}
+
+/** Confirm a record. Once approved it counts as history and shows up in every figure. */
+export function approveRecord(table: string, id: number, reviewerId: number): void {
+  assertTable(table);
+  db()
+    .prepare(
+      `update ${table} set status = 'approved', reviewed_by = ?, reviewed_at = ?, review_note = null
+       where id = ?`
+    )
+    .run(reviewerId, new Date().toISOString(), id);
+}
+
+/** Send a record back. It stays in the file, out of the figures, with the reason attached. */
+export function rejectRecord(table: string, id: number, reviewerId: number, note: string | null): void {
+  assertTable(table);
+  db()
+    .prepare(`update ${table} set status = 'rejected', reviewed_by = ?, reviewed_at = ?, review_note = ? where id = ?`)
+    .run(reviewerId, new Date().toISOString(), note, id);
+}
+
+export function pendingCounts(): { purchases: number; payments: number; attendance: number; total: number } {
+  const count = (table: ReviewableTable) =>
+    (db().prepare(`select count(*) as n from ${table} where status = 'pending'`).get() as { n: number }).n;
+
+  const purchases = count("purchases");
+  const payments = count("payments");
+  const attendance = count("attendance");
+  return { purchases, payments, attendance, total: purchases + payments + attendance };
+}
+
+// ---------- price book ----------
+
+export function listPriceBook(): PriceEntry[] {
+  return db().prepare(`select * from price_book order by material_key`).all() as PriceEntry[];
+}
+
+export function getPriceEntry(materialKey: string): PriceEntry | undefined {
+  return db().prepare(`select * from price_book where material_key = ?`).get(materialKey) as PriceEntry | undefined;
+}
+
+export function savePriceEntry(entry: Omit<PriceEntry, "updated_at">): void {
+  db()
+    .prepare(
+      `insert into price_book (material_key, unit, usual_rate, note, updated_at, updated_by)
+       values (@material_key, @unit, @usual_rate, @note, @updated_at, @updated_by)
+       on conflict (material_key) do update set
+         unit = excluded.unit, usual_rate = excluded.usual_rate, note = excluded.note,
+         updated_at = excluded.updated_at, updated_by = excluded.updated_by`
+    )
+    .run({ ...entry, updated_at: new Date().toISOString() });
+}
+
+export function deletePriceEntry(materialKey: string): void {
+  db().prepare(`delete from price_book where material_key = ?`).run(materialKey);
+}
+
+/**
+ * What this material has actually cost on confirmed bills lately — the honest
+ * starting point when filling in a usual price.
+ */
+export function recentRateFor(materialKey: string, lines = 5): { avgRate: number; lines: number } | null {
+  const rows = db()
+    .prepare(
+      `select qty, rate, freight from purchases
+       where material_key = ? and status = 'approved' and qty > 0
+       order by purchased_on desc limit ?`
+    )
+    .all(materialKey, lines) as { qty: number; rate: number; freight: number }[];
+
+  if (rows.length === 0) return null;
+
+  const amount = rows.reduce((sum, r) => sum + r.qty * r.rate + (r.freight ?? 0), 0);
+  const qty = rows.reduce((sum, r) => sum + r.qty, 0);
+  return qty > 0 ? { avgRate: amount / qty, lines: rows.length } : null;
 }

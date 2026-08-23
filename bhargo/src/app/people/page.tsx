@@ -1,6 +1,6 @@
 import { addWorker, editWorker, markDay, removeAttendance, removeWorker } from "@/lib/actions";
 import { requireUser } from "@/lib/auth";
-import { Card, Empty, Field } from "@/components/ui";
+import { Card, Empty, Field, Pill } from "@/components/ui";
 import { getSettings, listAttendance, listProjects, listWorkers } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { dailyRateOf } from "@/lib/payroll";
@@ -24,15 +24,17 @@ export default function PeoplePage({ searchParams }: { searchParams: { project?:
   const date = searchParams.date || today;
 
   const existing = selected
-    ? new Map(listAttendance({ projectId: selected.id, from: date, to: date }).map((a) => [a.worker_id, a]))
+    ? new Map(
+        listAttendance({ projectId: selected.id, from: date, to: date, status: "all" }).map((a) => [a.worker_id, a])
+      )
     : new Map();
-  const recent = selected ? listAttendance({ projectId: selected.id }).slice(0, 25) : [];
+  const recent = selected ? listAttendance({ projectId: selected.id, status: "all" }).slice(0, 25) : [];
   const workerName = new Map(workers.map((w) => [w.id, w.name]));
 
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">People</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">People</h1>
         <p className="text-mute text-sm mt-1 max-w-2xl">
           The day rate is saved onto each day&rsquo;s attendance, so raising someone&rsquo;s rate
           tomorrow never rewrites what last year&rsquo;s work cost.
@@ -41,8 +43,8 @@ export default function PeoplePage({ searchParams }: { searchParams: { project?:
 
       {projects.length > 0 && (
         <Card title="Mark today's muster" subtitle="1 for a full day, 0.5 for half. Leave a row blank if they were not on site.">
-          <form method="get" className="px-4 pt-4 flex items-end gap-2 no-print">
-            <label className="text-xs text-mute">
+          <form method="get" className="px-3 sm:px-4 pt-4 flex flex-wrap items-end gap-2 no-print">
+            <label className="text-xs text-mute flex-1 min-w-[9rem]">
               <span className="block mb-1">Build</span>
               <select name="project" defaultValue={selected?.id} className="input">
                 {projects.map((p) => (
@@ -52,7 +54,7 @@ export default function PeoplePage({ searchParams }: { searchParams: { project?:
                 ))}
               </select>
             </label>
-            <label className="text-xs text-mute">
+            <label className="text-xs text-mute flex-1 min-w-[8rem]">
               <span className="block mb-1">Date</span>
               <input name="date" type="date" defaultValue={date} className="input" />
             </label>
@@ -62,8 +64,8 @@ export default function PeoplePage({ searchParams }: { searchParams: { project?:
           <form action={markDay} className="p-4">
             <input type="hidden" name="project_id" value={selected?.id} />
             <input type="hidden" name="work_date" value={date} />
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
+            <div className="scroll-x">
+              <table className="w-full border-collapse min-w-[40rem]">
                 <thead>
                   <tr>
                     <th className="th">Worker</th>
@@ -191,8 +193,8 @@ export default function PeoplePage({ searchParams }: { searchParams: { project?:
 
       {recent.length > 0 && (
         <Card title="Recent attendance" subtitle={selected?.name}>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="scroll-x">
+            <table className="w-full border-collapse min-w-[40rem]">
               <thead>
                 <tr>
                   <th className="th">Date</th>
@@ -200,6 +202,7 @@ export default function PeoplePage({ searchParams }: { searchParams: { project?:
                   <th className="th num">Days</th>
                   <th className="th num">OT</th>
                   <th className="th num">Rate that day</th>
+                  <th className="th">Confirmed</th>
                   <th className="th no-print" />
                 </tr>
               </thead>
@@ -211,6 +214,15 @@ export default function PeoplePage({ searchParams }: { searchParams: { project?:
                     <td className="td num">{a.days}</td>
                     <td className="td num text-mute">{a.ot_hours || "—"}</td>
                     <td className="td num text-mute">{a.day_rate ? money(a.day_rate) : "—"}</td>
+                    <td className="td">
+                      {a.status === "approved" ? (
+                        <span className="text-xs text-mute">yes</span>
+                      ) : (
+                        <Pill kind={a.status === "pending" ? "watch" : "alert"}>
+                          {a.status === "pending" ? "waiting" : "sent back"}
+                        </Pill>
+                      )}
+                    </td>
                     <td className="td no-print">
                       <form action={removeAttendance}>
                         <input type="hidden" name="id" value={a.id} />

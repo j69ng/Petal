@@ -74,13 +74,59 @@ npm test
 
 | Page | What it is for |
 | --- | --- |
-| **Overview** | Where the current build stands: spent, owed, and the bills worth asking about |
+| **Overview** | Where the current build stands: spent, owed, waiting, and the bills worth asking about |
+| **Waiting for you** | Owner only: everything unconfirmed, with its price check attached |
+| **Usual prices** | What each material should cost — the yardstick every bill is measured against |
 | **Compare builds** | This build measured against a finished one, material by material and trade by trade |
 | **Materials** | Record a bill; see totals per material, rate ranges and who supplied what |
 | **People** | The muster roll — mark the day, add workers, set day rates or monthly salaries |
 | **Wages** | What each person earned, drew as advances, and is still owed |
 | **Builds** | Add a house; floor area lives here |
 | **Settings** | What counts as normal price drift and what counts as too much |
+
+## Nothing counts until you confirm it
+
+Entries made by staff land as **claims**, not as history. They sit out of every
+total, every wage balance and every comparison until the owner opens **Waiting for
+you** and confirms them. Confirm what is right; send back what is not, with a
+reason the person who entered it will see.
+
+The owner's own entries are confirmed as they are saved — confirming your own
+bill would be theatre.
+
+Correcting a confirmed record puts it back in the queue, so a figure cannot be
+quietly changed after it has been approved. Nothing is ever deleted behind your
+back: a rejected bill stays in the file, marked, with the reason attached.
+
+## What things usually cost
+
+Write down what you expect to pay for each material on the **Usual prices** page.
+From then on, every bill is checked against that figure **as it is typed** — the
+person standing at the gate with a delivery sees "21% over your usual price,
+Rs. 40,000 more on this load" before they sign for it. Same check again on the
+bill list and in the approval queue.
+
+It flags both directions. Well over the usual price is the obvious worry. Well
+under is flagged too — a rate far below the going rate usually means a different
+grade, a short load, or a quote that gets "corrected" after delivery.
+
+This is the check that works on day one. The build-to-build comparison needs a
+finished house to measure against; this needs only your own judgement of the
+market, and it catches the same overcharging months earlier.
+
+Only the owner can change these figures. If staff could move the yardstick, an
+overcharge could be made to look normal.
+
+## On a phone
+
+Bhargo is built for the site, not the desk. The five things done daily — home,
+materials, muster, wages, compare — sit in a thumb bar at the bottom of the
+screen; everything else is behind **More**. Fields are sized so phone keyboards
+do not zoom the page, tap targets are finger-sized, and wide tables scroll inside
+their own box instead of stretching the screen.
+
+Add it to a home screen (Chrome: *Add to Home screen*; Safari: *Share → Add to
+Home Screen*) and it opens like an app, without a browser bar.
 
 ## Who can get in
 
@@ -90,6 +136,9 @@ the owner on the **Accounts** page. Two roles:
 | | Owner | Staff |
 | --- | --- | --- |
 | Record bills, attendance, wages, builds | yes | yes |
+| Have those entries count immediately | yes | no — they wait for the owner |
+| Confirm or send back what others entered | yes | no |
+| Set what materials usually cost | yes | no |
 | Compare builds, see wage sheets | yes | yes |
 | Add and remove accounts | yes | no |
 | Change thresholds in Settings | yes | no |
@@ -178,6 +227,7 @@ src/
   components/     small shared pieces: nav, cards, stat tiles, verdict pills
   lib/
     variance.ts   build-to-build material comparison (the core arithmetic)
+    pricecheck.ts one rate against your usual price — works from the first bill
     payroll.ts    wage ledgers, labour cost per sq.ft, trade-by-trade comparison
     redflags.ts   checks that need only one build's own bills
     materials.ts  material catalog and how fast each one normally moves

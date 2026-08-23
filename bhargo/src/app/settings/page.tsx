@@ -13,7 +13,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <header>
-        <h1 className="text-2xl font-semibold">Settings</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Settings</h1>
         <p className="text-mute text-sm mt-1">
           These decide what counts as a normal price rise and what counts as being charged too much.
         </p>
@@ -61,7 +61,7 @@ export default function SettingsPage() {
         title="How fast each material normally moves"
         subtitle="Built in. Edit src/lib/materials.ts if your market behaves differently."
       >
-        <div className="overflow-x-auto">
+        <div className="scroll-x">
           <table className="w-full border-collapse">
             <thead>
               <tr>

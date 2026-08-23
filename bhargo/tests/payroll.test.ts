@@ -6,6 +6,15 @@ import { DEFAULT_SETTINGS, type Attendance, type Payment, type Project, type Wor
 
 const settings = { ...DEFAULT_SETTINGS, working_days_per_month: 26 };
 
+// These tests are about the arithmetic, so every record is already confirmed.
+const confirmed = {
+  status: "approved" as const,
+  entered_by: null,
+  reviewed_by: null,
+  reviewed_at: null,
+  review_note: null,
+};
+
 const mason: Worker = { id: 1, name: "Ram", trade: "mason", wage_type: "daily", rate: 1000, phone: null, active: 1 };
 const supervisor: Worker = { id: 2, name: "Shyam", trade: "supervisor", wage_type: "monthly", rate: 26_000, phone: null, active: 1 };
 
@@ -17,7 +26,7 @@ function day(
   ot_hours = 0,
   day_rate: number | null = null
 ): Attendance {
-  return { id, project_id: 1, worker_id, work_date, days, ot_hours, day_rate };
+  return { id, project_id: 1, worker_id, work_date, days, ot_hours, day_rate, ...confirmed };
 }
 
 test("a monthly salary is divided into day rates by the working-day convention", () => {
@@ -41,9 +50,9 @@ test("half days and overtime both land in the ledger", () => {
 test("advances and wage payments clear the balance; a bonus does not", () => {
   const attendance = [day(1, 1, "2026-06-01"), day(2, 1, "2026-06-02")];
   const payments: Payment[] = [
-    { id: 1, worker_id: 1, project_id: 1, paid_on: "2026-06-01", amount: 500, kind: "advance", note: null },
-    { id: 2, worker_id: 1, project_id: 1, paid_on: "2026-06-03", amount: 1000, kind: "wage", note: null },
-    { id: 3, worker_id: 1, project_id: 1, paid_on: "2026-06-03", amount: 300, kind: "bonus", note: "festival" },
+    { id: 1, worker_id: 1, project_id: 1, paid_on: "2026-06-01", amount: 500, kind: "advance", note: null, ...confirmed },
+    { id: 2, worker_id: 1, project_id: 1, paid_on: "2026-06-03", amount: 1000, kind: "wage", note: null, ...confirmed },
+    { id: 3, worker_id: 1, project_id: 1, paid_on: "2026-06-03", amount: 300, kind: "bonus", note: "festival", ...confirmed },
   ];
   const ledger = workerLedger(mason, attendance, payments, settings);
 
@@ -56,7 +65,7 @@ test("advances and wage payments clear the balance; a bonus does not", () => {
 
 test("a worker who has drawn more than they have worked shows a negative balance", () => {
   const payments: Payment[] = [
-    { id: 1, worker_id: 1, project_id: 1, paid_on: "2026-06-01", amount: 5000, kind: "advance", note: null },
+    { id: 1, worker_id: 1, project_id: 1, paid_on: "2026-06-01", amount: 5000, kind: "advance", note: null, ...confirmed },
   ];
   const ledger = workerLedger(mason, [day(1, 1, "2026-06-01")], payments, settings);
   assert.equal(ledger.balance, -4000);
@@ -125,7 +134,7 @@ test("padded muster rolls show up as a days overrun, not a rate problem", () => 
     Array.from({ length: 260 }, (_, i) => ({
       id: i + 1, project_id: 2, worker_id: 1,
       work_date: `2026-03-${String((i % 28) + 1).padStart(2, "0")}`,
-      days: 1, ot_hours: 0, day_rate: fairRate,
+      days: 1, ot_hours: 0, day_rate: fairRate, ...confirmed,
     })),
     settings
   );

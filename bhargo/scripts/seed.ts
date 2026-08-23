@@ -10,13 +10,24 @@
  * Everything here is invented. Replace it with your own books.
  */
 
-import { db, createProject, createWorker, createPurchase, createPayment, markAttendance } from "../src/lib/db";
-import type { PaymentKind, Purchase } from "../src/lib/types";
+import {
+  db,
+  createProject,
+  createWorker,
+  createPurchase,
+  createPayment,
+  markAttendance,
+  savePriceEntry,
+} from "../src/lib/db";
+import type { Draft, PaymentKind, Purchase, RecordStatus } from "../src/lib/types";
 
 const database = db();
 
 // Wipe first so re-seeding doesn't stack duplicates on top of old sample data.
-database.exec(`delete from attendance; delete from payments; delete from purchases; delete from workers; delete from projects;`);
+database.exec(
+  `delete from attendance; delete from payments; delete from purchases; delete from workers;
+   delete from projects; delete from price_book;`
+);
 database.exec(`delete from sqlite_sequence where name in ('attendance','payments','purchases','workers','projects')`);
 
 // ---------------------------------------------------------------- projects
@@ -43,7 +54,7 @@ const houseB = createProject({
 
 // ---------------------------------------------------------------- materials
 
-type Line = Omit<Purchase, "id">;
+type Line = Draft<Purchase>;
 
 function buy(
   project_id: number,
@@ -55,9 +66,14 @@ function buy(
   purchased_on: string,
   invoice_no: string | null = null,
   freight = 0,
-  note: string | null = null
+  note: string | null = null,
+  status: RecordStatus = "approved"
 ): Line {
-  return { project_id, material_key, unit, qty, rate, freight, vendor, invoice_no, purchased_on, note };
+  return {
+    project_id, material_key, unit, qty, rate, freight, vendor, invoice_no, purchased_on, note,
+    status,
+    entered_by: null,
+  };
 }
 
 // --- the finished house: 1,800 sq.ft, honest prices for 2023
@@ -90,7 +106,7 @@ const houseBLines: Line[] = [
   // already past what the whole last house needed, pro-rata for size.
   buy(houseB, "cement", "bag (50kg)", 400, 950, "Shree Traders", "2026-03-05", "C-401", 5000),
   buy(houseB, "cement", "bag (50kg)", 400, 1150, "Shree Traders", "2026-05-10", "C-455", 5000),
-  buy(houseB, "cement", "bag (50kg)", 344, 1150, "Shree Traders", "2026-06-18", null, 4000, "No bill given yet"),
+  buy(houseB, "cement", "bag (50kg)", 344, 1150, "Shree Traders", "2026-06-18", null, 4000, "No bill given yet", "pending"),
   // Steel: honest. Structure is done, so the quantity is close to final.
   buy(houseB, "steel", "kg", 4000, 118, "Bharat Steel", "2026-03-18", "S-311", 8000),
   buy(houseB, "steel", "kg", 3800, 118, "Bharat Steel", "2026-05-02", "S-355", 7500),
@@ -98,7 +114,7 @@ const houseBLines: Line[] = [
   buy(houseB, "sand", "cft", 1500, 68, "Gopal Suppliers", "2026-03-12", "N-201"),
   buy(houseB, "sand", "cft", 1400, 86, "Krishna Sand Supply", "2026-04-20", "K-11"),
   buy(houseB, "sand", "cft", 700, 86, "Krishna Sand Supply", "2026-06-02", "K-33"),
-  buy(houseB, "sand", "cft", 700, 86, "Krishna Sand Supply", "2026-06-05", "K-33", 0, "Second copy of the same challan?"),
+  buy(houseB, "sand", "cft", 700, 86, "Krishna Sand Supply", "2026-06-05", "K-33", 0, "Second copy of the same challan?", "pending"),
   buy(houseB, "aggregate", "cft", 1600, 70, "Gopal Suppliers", "2026-03-25", "N-233"),
   buy(houseB, "aggregate", "cft", 1400, 70, "Gopal Suppliers", "2026-05-15", "N-266"),
   buy(houseB, "bricks", "1000 nos", 9, 15800, "Lakshmi Bricks", "2026-04-05", "B-121"),
@@ -108,10 +124,10 @@ const houseBLines: Line[] = [
   buy(houseB, "windows", "nos", 14, 9000, "Metro Aluminium", "2026-07-05", "M-51"),
   buy(houseB, "plumbing", "lot", 1, 265000, "Sanjay Plumbing", "2026-06-25", "P-30"),
   buy(houseB, "wiring", "lot", 1, 310000, "Volt Electricals", "2026-06-28", "E-41"),
-  buy(houseB, "tiles", "sqft", 900, 88, "Ceramic House", "2026-08-01", "T-95"),
+  buy(houseB, "tiles", "sqft", 900, 88, "Ceramic House", "2026-08-01", "T-95", 0, null, "pending"),
   buy(houseB, "hardware", "lot", 1, 96000, "Shree Traders", "2026-05-20", "C-460"),
   // Not on the last house at all — nothing to compare it against.
-  buy(houseB, "marble", "sqft", 320, 210, "Stone Gallery", "2026-08-10", "SG-7"),
+  buy(houseB, "marble", "sqft", 320, 210, "Stone Gallery", "2026-08-10", "SG-7", 0, null, "pending"),
 ];
 
 [...houseALines, ...houseBLines].forEach(createPurchase);
@@ -162,7 +178,8 @@ const daysA = workingDays("2023-02-06", "2023-12-15");
 const daysB = workingDays("2026-02-02", "2026-08-22");
 
 function putIn(project_id: number, worker_id: number, dates: string[], count: number, day_rate: number, otEvery = 0) {
-  dates.slice(0, count).forEach((work_date, i) => {
+  const chosen = dates.slice(0, count);
+  chosen.forEach((work_date, i) => {
     markAttendance({
       project_id,
       worker_id,
@@ -170,6 +187,9 @@ function putIn(project_id: number, worker_id: number, dates: string[], count: nu
       days: 1,
       ot_hours: otEvery > 0 && i % otEvery === 0 ? 3 : 0,
       day_rate,
+      // The last week of the running build has not been confirmed yet.
+      status: project_id === houseB && i >= chosen.length - 6 ? "pending" : "approved",
+      entered_by: null,
     });
   });
 }
@@ -196,7 +216,15 @@ putIn(houseB, prakash, daysB, 175, 36000 / 26);
 
 // ---------------------------------------------------------------- payments
 
-function pay(worker: string, project_id: number, paid_on: string, amount: number, kind: PaymentKind, note?: string) {
+function pay(
+  worker: string,
+  project_id: number,
+  paid_on: string,
+  amount: number,
+  kind: PaymentKind,
+  note?: string,
+  status: RecordStatus = "approved"
+) {
   createPayment({
     worker_id: worker === "Prakash" ? prakash : workerIds.get(worker)!,
     project_id,
@@ -204,6 +232,8 @@ function pay(worker: string, project_id: number, paid_on: string, amount: number
     amount,
     kind,
     note: note ?? null,
+    status,
+    entered_by: null,
   });
 }
 
@@ -234,10 +264,38 @@ for (const [name, amount] of weeklyB) {
   pay(name, houseB, "2026-05-30", Math.round(amount * 0.6), "wage", "Wages to end May");
   pay(name, houseB, "2026-07-25", Math.round(amount * 0.4), "wage", "Wages to end July");
 }
-pay("Kali", houseB, "2026-08-10", 12_000, "advance", "Advance for medical");
-pay("Ram Bahadur", houseB, "2026-08-14", 20_000, "advance", "Advance against August wages");
+// Both advances are still waiting on the owner.
+pay("Kali", houseB, "2026-08-10", 12_000, "advance", "Advance for medical", "pending");
+pay("Ram Bahadur", houseB, "2026-08-14", 20_000, "advance", "Advance against August wages", "pending");
+
+// ------------------------------------------------- what things usually cost
+//
+// The owner's own yardstick. A bill can be judged against this the day it
+// arrives, with no second build needed.
+
+const USUAL: [string, string, number, string][] = [
+  ["cement", "bag (50kg)", 950, "Market rate, asked three suppliers in May"],
+  ["steel", "kg", 118, "Bharat Steel quotation"],
+  ["sand", "cft", 70, "Gopal Suppliers, delivered"],
+  ["aggregate", "cft", 70, "Gopal Suppliers, delivered"],
+  ["bricks", "1000 nos", 15800, "Lakshmi Bricks, last load"],
+  ["timber", "cft", 2650, "Verma Timber, seasoned sal"],
+  ["tiles", "sqft", 90, "Ceramic House, mid range"],
+  ["paint", "litre", 470, "Colour Point, exterior"],
+  ["doors", "nos", 11000, "Flush door with frame"],
+  ["windows", "nos", 9000, "Aluminium, glazed"],
+  ["marble", "sqft", 185, "Stone Gallery, asked in July"],
+];
+
+for (const [material_key, unit, usual_rate, note] of USUAL) {
+  savePriceEntry({ material_key, unit, usual_rate, note, updated_by: null });
+}
 
 console.log("Seeded:");
 console.log(`  ${houseALines.length + houseBLines.length} material purchases across 2 builds`);
 console.log(`  ${people.length + 1} workers, attendance for both builds, wages and advances`);
-console.log("Open /compare to see the second build measured against the first.");
+console.log(`  usual prices for ${USUAL.length} materials`);
+console.log("");
+console.log("Sign in as the owner, then:");
+console.log("  /approvals  — the entries waiting to be confirmed before they count");
+console.log("  /compare    — the second build measured against the first");

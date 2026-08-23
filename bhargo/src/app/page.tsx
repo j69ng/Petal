@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-import { requireUser } from "@/lib/auth";
+import { isOwner, requireUser } from "@/lib/auth";
 import { Card, Empty, Pill, Stat } from "@/components/ui";
-import { getSettings, listAttendance, listPayments, listProjects, listPurchases, listWorkers } from "@/lib/db";
+import { getSettings, listAttendance, listPayments, listProjects, listPurchases, listWorkers, pendingCounts } from "@/lib/db";
 import { formatMoney, formatShort } from "@/lib/money";
 import { labourSummary, payrollLedger } from "@/lib/payroll";
 import { detectRedFlags } from "@/lib/redflags";
@@ -11,7 +11,8 @@ import { compareProjects, rollupByMaterial } from "@/lib/variance";
 export const dynamic = "force-dynamic";
 
 export default function OverviewPage({ searchParams }: { searchParams: { denied?: string } }) {
-  requireUser();
+  const user = requireUser();
+  const waiting = pendingCounts();
   const settings = getSettings();
   const projects = listProjects();
   const money = (n: number) => formatMoney(Math.round(n), settings.currency);
@@ -55,8 +56,26 @@ export default function OverviewPage({ searchParams }: { searchParams: { denied?
           That page is for the owner account only. Ask whoever set Bhargo up if you need it.
         </p>
       )}
+      {waiting.total > 0 && (
+        <Link
+          href={isOwner(user) ? "/approvals" : "/purchases"}
+          className="block text-sm bg-brandsoft border border-line rounded px-4 py-3 hover:border-brand"
+        >
+          <strong>{waiting.total} entr{waiting.total === 1 ? "y is" : "ies are"} waiting to be confirmed</strong>
+          {" — "}
+          {[
+            waiting.purchases ? `${waiting.purchases} bill${waiting.purchases === 1 ? "" : "s"}` : null,
+            waiting.payments ? `${waiting.payments} payment${waiting.payments === 1 ? "" : "s"}` : null,
+            waiting.attendance ? `${waiting.attendance} attendance entr${waiting.attendance === 1 ? "y" : "ies"}` : null,
+          ]
+            .filter(Boolean)
+            .join(", ")}
+          . None of it counts until then.
+        </Link>
+      )}
+
       <header>
-        <h1 className="text-2xl font-semibold">{current.name}</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">{current.name}</h1>
         <p className="text-mute text-sm mt-1">
           {current.site ? `${current.site} · ` : ""}
           {current.area_sqft.toLocaleString("en-IN")} sq.ft · started {current.started_on} ·{" "}

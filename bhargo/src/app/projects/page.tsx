@@ -19,7 +19,7 @@ export default function ProjectsPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold">Builds</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Builds</h1>
         <p className="text-mute text-sm mt-1 max-w-2xl">
           Floor area is the one field worth getting right — every comparison between builds is done
           per square foot, so a wrong area quietly bends all of it.

@@ -23,8 +23,17 @@ export default function PayrollPage({
   const from = searchParams.from || undefined;
   const to = searchParams.to || undefined;
 
+  // Confirmed records only — an unconfirmed day or payment must not change what
+  // someone is owed until the owner has stood behind it.
   const attendance = selected ? listAttendance({ projectId: selected.id, from, to }) : [];
   const payments = selected ? listPayments({ projectId: selected.id, from, to }) : [];
+  const heldBack = selected
+    ? {
+        days: listAttendance({ projectId: selected.id, from, to, status: "pending" }).length,
+        payments: listPayments({ projectId: selected.id, from, to, status: "pending" }),
+      }
+    : { days: 0, payments: [] };
+  const heldBackMoney = heldBack.payments.reduce((sum, p) => sum + p.amount, 0);
   const ledger = payrollLedger(workers, attendance, payments, settings);
 
   const earned = ledger.reduce((s, l) => s + l.earned, 0);
@@ -47,35 +56,33 @@ export default function PayrollPage({
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Wage sheet</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold">Wage sheet</h1>
           <p className="text-mute text-sm mt-1">
             {selected.name}
             {from || to ? ` · ${from ?? "start"} to ${to ?? "today"}` : " · everything so far"}
           </p>
         </div>
-        <div className="flex items-end gap-2 no-print">
-          <form method="get" className="flex items-end gap-2">
-            <label className="text-xs text-mute">
-              <span className="block mb-1">Build</span>
-              <select name="project" defaultValue={selected.id} className="input">
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs text-mute">
-              <span className="block mb-1">From</span>
-              <input name="from" type="date" defaultValue={from ?? ""} className="input" />
-            </label>
-            <label className="text-xs text-mute">
-              <span className="block mb-1">To</span>
-              <input name="to" type="date" defaultValue={to ?? ""} className="input" />
-            </label>
-            <button className="btn">Show</button>
-          </form>
-        </div>
+        <form method="get" className="w-full sm:w-auto flex flex-wrap items-end gap-2 no-print">
+          <label className="text-xs text-mute flex-1 min-w-[9rem]">
+            <span className="block mb-1">Build</span>
+            <select name="project" defaultValue={selected.id} className="input">
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-mute flex-1 min-w-[8rem]">
+            <span className="block mb-1">From</span>
+            <input name="from" type="date" defaultValue={from ?? ""} className="input" />
+          </label>
+          <label className="text-xs text-mute flex-1 min-w-[8rem]">
+            <span className="block mb-1">To</span>
+            <input name="to" type="date" defaultValue={to ?? ""} className="input" />
+          </label>
+          <button className="btn">Show</button>
+        </form>
       </header>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -89,14 +96,22 @@ export default function PayrollPage({
         />
       </div>
 
-      <Card title="What each person is owed" subtitle="Earned from attendance, less advances and wage payments.">
+      {(heldBack.days > 0 || heldBack.payments.length > 0) && (
+        <p className="text-sm bg-brandsoft border border-line rounded px-4 py-3">
+          Not counted below: {heldBack.days} day{heldBack.days === 1 ? "" : "s"} of attendance and{" "}
+          {heldBack.payments.length} payment{heldBack.payments.length === 1 ? "" : "s"} worth{" "}
+          {money(heldBackMoney)}, still waiting to be confirmed.
+        </p>
+      )}
+
+      <Card title="What each person is owed" subtitle="Earned from attendance, less advances and wage payments — confirmed records only.">
         {ledger.length === 0 ? (
           <Empty action={{ href: "/people", label: "Mark attendance" }}>
             No attendance or payments recorded for this build in this period.
           </Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="scroll-x">
+            <table className="w-full border-collapse min-w-[52rem]">
               <thead>
                 <tr>
                   <th className="th">Worker</th>
@@ -193,8 +208,8 @@ export default function PayrollPage({
         {payments.length === 0 ? (
           <Empty>No payments recorded yet.</Empty>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="scroll-x">
+            <table className="w-full border-collapse min-w-[52rem]">
               <thead>
                 <tr>
                   <th className="th">Date</th>

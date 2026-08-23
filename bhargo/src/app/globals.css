@@ -9,6 +9,18 @@
 body {
   background: theme("colors.paper");
   color: theme("colors.ink");
+  -webkit-text-size-adjust: 100%;
+  /* Wide content scrolls inside its own box (.scroll-x). Nothing may stretch the
+     page itself — a document wider than the screen drags the fixed thumb bar
+     off with it. */
+  overflow-x: hidden;
+}
+
+/* Keep the thumb bar clear of the home indicator on newer phones. */
+@supports (padding: env(safe-area-inset-bottom)) {
+  nav.fixed {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 @layer components {
@@ -18,23 +30,31 @@ body {
   .label {
     @apply block text-xs uppercase tracking-wide text-mute mb-1;
   }
+  /* 16px on phones on purpose: anything smaller and iOS zooms the page on focus. */
   .input {
-    @apply w-full border border-line rounded px-2.5 py-1.5 text-sm bg-card
-           focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand;
+    @apply w-full border border-line rounded px-3 py-2.5 text-base bg-card
+           focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand
+           sm:px-2.5 sm:py-1.5 sm:text-sm;
   }
   .btn {
-    @apply inline-flex items-center justify-center rounded px-3.5 py-1.5 text-sm font-medium
-           bg-brand text-white hover:bg-brand/90 disabled:opacity-50;
+    @apply inline-flex items-center justify-center rounded px-4 py-2.5 text-sm font-medium
+           min-h-[2.75rem] bg-brand text-white hover:bg-brand/90 active:bg-brand/80 disabled:opacity-50
+           sm:min-h-0 sm:px-3.5 sm:py-1.5;
   }
   .btn-quiet {
-    @apply inline-flex items-center justify-center rounded px-2.5 py-1 text-xs
-           border border-line text-mute hover:bg-brandsoft hover:text-ink;
+    @apply inline-flex items-center justify-center rounded px-3 py-2 text-xs min-h-[2.5rem]
+           border border-line text-mute hover:bg-brandsoft hover:text-ink active:bg-brandsoft
+           sm:min-h-0 sm:px-2.5 sm:py-1;
   }
   .th {
     @apply text-left text-xs uppercase tracking-wide text-mute font-medium px-3 py-2 border-b border-line;
   }
   .td {
     @apply px-3 py-2 border-b border-line/70 text-sm align-top;
+  }
+  /* Wide tables scroll inside their own box rather than stretching the page. */
+  .scroll-x {
+    @apply overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0;
   }
   .num {
     @apply text-right tabular-nums font-mono;

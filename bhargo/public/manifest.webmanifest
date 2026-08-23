@@ -1,0 +1,14 @@
+{
+  "name": "Bhargo — construction accounts",
+  "short_name": "Bhargo",
+  "description": "Wages, material bills, and what a build is really costing against the last one.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbfaf7",
+  "theme_color": "#8a5a2b",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

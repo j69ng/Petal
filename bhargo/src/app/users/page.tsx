@@ -11,7 +11,7 @@ export default function UsersPage({ searchParams }: { searchParams: { error?: st
   return (
     <div className="space-y-6 max-w-4xl">
       <header>
-        <h1 className="text-2xl font-semibold">Who can get in</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold">Who can get in</h1>
         <p className="text-mute text-sm mt-1 max-w-2xl">
           Only the people listed here can open Bhargo. There is no sign-up — accounts are made by
           you. When someone leaves, switch them off: their account stops working immediately and
@@ -57,8 +57,8 @@ export default function UsersPage({ searchParams }: { searchParams: { error?: st
       </Card>
 
       <Card title="Accounts">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <div className="scroll-x">
+          <table className="w-full border-collapse min-w-[44rem]">
             <thead>
               <tr>
                 <th className="th">Name</th>
