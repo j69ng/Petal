@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+# The database and its WAL sidecars — your books, not code.
+data/*.db
+data/*.db-*
+.env.local
+*.tsbuildinfo
+next-env.d.ts
