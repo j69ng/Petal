@@ -1,0 +1,23 @@
+# Caddy gets a real HTTPS certificate on its own and renews it — no certificate
+# work, no renewal reminders. Replace the domain with yours.
+#
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+
+bhargo.example.com {
+	reverse_proxy 127.0.0.1:3000
+
+	encode gzip
+
+	# The books are nobody else's business.
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "same-origin"
+	}
+
+	log {
+		output file /var/log/caddy/bhargo.log
+	}
+}

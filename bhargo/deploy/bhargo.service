@@ -1,0 +1,34 @@
+# Runs Bhargo as a service, so it comes back after a reboot and restarts if it
+# ever falls over. Install with:
+#   sudo cp deploy/bhargo.service /etc/systemd/system/
+#   sudo systemctl enable --now bhargo
+
+[Unit]
+Description=Bhargo — construction accounts
+After=network.target
+
+[Service]
+Type=simple
+User=bhargo
+WorkingDirectory=/srv/bhargo
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# The books live outside the code directory, so a redeploy can never touch them.
+Environment=BHARGO_DB=/var/lib/bhargo/bhargo.db
+# Set only when served over HTTPS (which the Caddyfile does).
+Environment=BHARGO_SECURE_COOKIES=1
+# Uncomment for the first deploy, then remove it once the owner account exists.
+# Environment=BHARGO_SETUP_KEY=change-this-to-something-long
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+
+# Modest hardening: the service can only write where it needs to.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/bhargo /srv/bhargo/.next
+
+[Install]
+WantedBy=multi-user.target

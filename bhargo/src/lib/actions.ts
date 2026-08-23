@@ -251,6 +251,10 @@ export async function saveSettingsAction(form: FormData) {
 export async function createFirstOwner(form: FormData) {
   if (auth.userCount() > 0) redirect("/login");
 
+  if (!auth.setupKeyMatches(str(form, "setup_key"))) {
+    redirect(`/setup?error=${encodeURIComponent("Wrong setup key.")}`);
+  }
+
   const result = await auth.createUser({
     name: str(form, "name"),
     username: str(form, "username"),

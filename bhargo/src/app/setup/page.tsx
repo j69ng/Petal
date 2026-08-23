@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 
 import { createFirstOwner } from "@/lib/actions";
 import { Field } from "@/components/ui";
-import { userCount } from "@/lib/auth";
+import { setupKeyRequired, userCount } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 /** First run only: creates the owner account, then disappears. */
 export default function SetupPage({ searchParams }: { searchParams: { error?: string } }) {
   if (userCount() > 0) redirect("/login");
+  const needsKey = setupKeyRequired();
 
   return (
     <div className="max-w-md mx-auto mt-10">
@@ -23,6 +24,11 @@ export default function SetupPage({ searchParams }: { searchParams: { error?: st
           <p className="text-sm text-alert bg-alert/10 border border-alert/30 rounded px-3 py-2">
             {searchParams.error}
           </p>
+        )}
+        {needsKey && (
+          <Field label="Setup key" hint="The key set on the server when Bhargo was installed.">
+            <input name="setup_key" required className="input" autoComplete="off" />
+          </Field>
         )}
         <Field label="Your name">
           <input name="name" required autoFocus className="input" placeholder="Pradil Jung" />

@@ -189,12 +189,16 @@ only thing between them and your books. Use long ones.
 Whichever you choose, `data/bhargo.db` holds both the books and the password hashes.
 Back it up somewhere only the company can read.
 
+Step-by-step instructions for all three, plus service files, backups and a
+handover checklist, are in [deploy/DEPLOY.md](deploy/DEPLOY.md).
+
 ### Settings you can pass
 
 | Variable | What it does |
 | --- | --- |
 | `BHARGO_DB` | Where the database file lives (default `data/bhargo.db`) |
 | `BHARGO_SECURE_COOKIES` | Set to `1` when serving over HTTPS, so the session cookie is HTTPS-only |
+| `BHARGO_SETUP_KEY` | Locks the first-run page. Without it, a fresh public deployment hands the owner account to whoever opens it first |
 | `PORT` | Port to listen on (default 3000) |
 
 ## Things worth knowing

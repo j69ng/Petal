@@ -7,7 +7,7 @@
 // tokens kept server-side so an account can be cut off the moment someone
 // leaves, which a self-contained signed cookie could not do.
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -19,6 +19,29 @@ export const SESSION_COOKIE = "bhargo_session";
 const SESSION_DAYS = 30;
 
 // ---------------------------------------------------------------- accounts
+
+/**
+ * Whether the first-run page is protected by a key.
+ *
+ * A fresh deployment has no accounts, so /setup hands the owner account to
+ * whoever opens it first. On a public address that is a race between you and a
+ * stranger. Setting BHARGO_SETUP_KEY closes it: the key has to be typed in
+ * before the owner account can be created, and once it exists the page is gone
+ * for good.
+ */
+export function setupKeyRequired(): boolean {
+  return !!process.env.BHARGO_SETUP_KEY?.trim();
+}
+
+export function setupKeyMatches(given: string): boolean {
+  const expected = process.env.BHARGO_SETUP_KEY?.trim();
+  if (!expected) return true;
+
+  // Constant-time compare — this is a secret like any other.
+  const a = Buffer.from(given.trim());
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 export function userCount(): number {
   const row = db().prepare(`select count(*) as n from users`).get() as { n: number };
