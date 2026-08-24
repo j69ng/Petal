@@ -154,6 +154,20 @@ leaving the company is one button, and everything they recorded stays in the boo
 Five wrong passwords in a row on one username put it on hold for a minute, so a guessing
 script gets nowhere.
 
+## A demo, for showing it to someone
+
+Set `BHARGO_DEMO=1` and Bhargo loads the sample builds on first boot, creates a
+`demo` account with the password filled in on the sign-in page, and puts a
+warning across the top of every screen saying the data is invented and will be
+wiped. Good for a link you hand someone before they commit to anything.
+
+It also switches itself on where it has to. A serverless host — Vercel and the
+like — has no permanent disk: only `/tmp`, wiped constantly. Deployed to one of
+those without an explicit `BHARGO_DB`, Bhargo writes to `/tmp` and runs as a
+demo, saying so on every screen, rather than pretending to keep records it is
+about to lose. Real books need a host with a real disk; see
+[deploy/DEPLOY.md](deploy/DEPLOY.md).
+
 ## Making it reachable to your company only
 
 Accounts decide *who* may sign in. Where Bhargo can be reached from is a separate wall,

@@ -19,7 +19,18 @@ import {
   type Worker,
 } from "./types";
 
-const DB_PATH = process.env.BHARGO_DB ?? path.join(process.cwd(), "data", "bhargo.db");
+/**
+ * Where the books live.
+ *
+ * Serverless hosts (Vercel and the like) give a container a read-only
+ * filesystem with only /tmp writable, and wipe it constantly. Rather than
+ * crash on start — or worse, appear to work while quietly losing records —
+ * Bhargo falls back to /tmp there and runs as a demo, which says so on every
+ * screen. Setting BHARGO_DB explicitly always wins.
+ */
+const DB_PATH =
+  process.env.BHARGO_DB ??
+  (process.env.VERCEL ? "/tmp/bhargo.db" : path.join(process.cwd(), "data", "bhargo.db"));
 
 const SCHEMA = `
 create table if not exists projects (

@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import { createFirstOwner } from "@/lib/actions";
 import { Field } from "@/components/ui";
 import { setupKeyRequired, userCount } from "@/lib/auth";
+import { isDemo } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
 /** First run only: creates the owner account, then disappears. */
 export default function SetupPage({ searchParams }: { searchParams: { error?: string } }) {
-  if (userCount() > 0) redirect("/login");
+  // The demo already has its owner; nobody should be claiming this one.
+  if (userCount() > 0 || isDemo()) redirect("/login");
   const needsKey = setupKeyRequired();
 
   return (

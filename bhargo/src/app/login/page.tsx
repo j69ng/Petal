@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { signInAction } from "@/lib/actions";
 import { Field } from "@/components/ui";
 import { currentUser, userCount } from "@/lib/auth";
+import { DEMO_PASSWORD, DEMO_USERNAME, isDemo } from "@/lib/demo";
 
 export const dynamic = "force-dynamic";
 
@@ -23,17 +24,38 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
           </p>
         )}
         <Field label="Username">
-          <input name="username" required autoFocus autoCapitalize="none" className="input" />
+          <input
+            name="username"
+            required
+            autoFocus
+            autoCapitalize="none"
+            defaultValue={isDemo() ? DEMO_USERNAME : undefined}
+            className="input"
+          />
         </Field>
         <Field label="Password">
-          <input name="password" type="password" required className="input" />
+          <input
+            name="password"
+            type="password"
+            required
+            defaultValue={isDemo() ? DEMO_PASSWORD : undefined}
+            className="input"
+          />
         </Field>
         <button className="btn w-full">Sign in</button>
       </form>
 
-      <p className="text-xs text-mute mt-4">
-        No account? Only the owner can create one. Ask them to add you.
-      </p>
+      {isDemo() ? (
+        <p className="text-xs text-mute mt-4">
+          Filled in for you: <span className="font-mono">{DEMO_USERNAME}</span> /{" "}
+          <span className="font-mono">{DEMO_PASSWORD}</span>. Press Sign in and look around — the
+          books belong to an invented contractor, and nothing here lasts.
+        </p>
+      ) : (
+        <p className="text-xs text-mute mt-4">
+          No account? Only the owner can create one. Ask them to add you.
+        </p>
+      )}
     </div>
   );
 }

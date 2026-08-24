@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import Nav from "@/components/Nav";
 import { currentUser, isOwner } from "@/lib/auth";
 import { pendingCounts } from "@/lib/db";
+import { isDemo, prepareDemo } from "@/lib/demo";
 import { installCrashHandlers } from "@/lib/monitor";
 import "./globals.css";
 
@@ -26,7 +27,9 @@ export const dynamic = "force-dynamic";
 // Runs once per server process, on the first render.
 installCrashHandlers();
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  await prepareDemo();
+
   // Nobody signed in means the sign-in or first-run page, which carries no nav.
   const user = currentUser();
   const pending = user && isOwner(user) ? pendingCounts().total : 0;
@@ -34,6 +37,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        {isDemo() && (
+          <div className="bg-warn/15 border-b border-warn/30 text-center text-xs px-4 py-1.5">
+            Demo — sample data, and everything you enter is wiped when the server restarts. Do not
+            put real records here.
+          </div>
+        )}
         {user && <Nav user={{ name: user.name, role: user.role }} pending={pending} />}
         <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">{children}</main>
         <footer className="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-xs text-mute no-print">
