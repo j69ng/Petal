@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bhargo — Software Overview</title>
+<style>
+  @page { size: A4; margin: 20mm 18mm 18mm 18mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "DejaVu Serif", Georgia, serif; font-size: 10.5pt; line-height: 1.55; color: #1b1a17; margin: 0; }
+  h1 { font-family: "DejaVu Sans", Helvetica, Arial, sans-serif; font-size: 20pt; margin: 0 0 2mm; letter-spacing: -0.2pt; }
+  h2 { font-family: "DejaVu Sans", Helvetica, Arial, sans-serif; font-size: 12pt; margin: 8mm 0 2.5mm; padding-bottom: 1.5mm;
+       border-bottom: 1.2pt solid #8a5a2b; color: #8a5a2b; }
+  h3 { font-family: "DejaVu Sans", Helvetica, Arial, sans-serif; font-size: 10.5pt; margin: 5mm 0 1.5mm; }
+  p { margin: 0 0 2.5mm; }
+  .sub { color: #6f6a61; font-size: 9.5pt; margin-bottom: 6mm; }
+  .lead { font-size: 11pt; }
+  ul { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.5mm; }
+  table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; font-size: 9.5pt; }
+  th { text-align: left; font-family: "DejaVu Sans", sans-serif; font-size: 8.5pt; text-transform: uppercase;
+       letter-spacing: 0.4pt; color: #6f6a61; border-bottom: 0.8pt solid #d8d4cc; padding: 1.5mm 2mm 1.5mm 0; }
+  td { padding: 1.8mm 2mm 1.8mm 0; border-bottom: 0.4pt solid #e8e4dc; vertical-align: top; }
+  td:first-child { font-family: "DejaVu Sans", sans-serif; font-weight: bold; width: 34mm; }
+  .cannot td:first-child { color: #b3261e; }
+  .note { background: #f7f3ec; border-left: 2.5pt solid #8a5a2b; padding: 3mm 4mm; margin: 4mm 0; font-size: 9.5pt; }
+  .avoid-break { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<h1>Bhargo</h1>
+<p class="sub">Construction accounts — wages, material bills, and what a build is really costing<br>
+Software overview · Prepared for Bhargo Construction · 24 August 2026</p>
+
+<p class="lead">Bhargo keeps a contractor's books and answers one question the books alone
+cannot: <strong>is this build being charged more than the last one, and by whom?</strong>
+This document sets out plainly what the software does, and — just as important — what it
+does not do.</p>
+
+<h2>What it does</h2>
+
+<h3>Wages and attendance</h3>
+<table>
+  <tr><td>Muster roll</td><td>Mark each day per worker — full day, half day, overtime hours. Day rates are stored against each day worked, so raising someone's rate later never changes what past work cost.</td></tr>
+  <tr><td>Wage sheet</td><td>What each person earned, what they drew as advances, and what is still owed. Supports both daily wages and monthly salaries.</td></tr>
+  <tr><td>Labour cost</td><td>Cost per square foot and man-days per square foot, per trade, so one build can be compared with another.</td></tr>
+</table>
+
+<h3>Materials and bills</h3>
+<table>
+  <tr><td>Bill entry</td><td>Material, quantity, unit, rate, freight, vendor, invoice number and date. Freight is kept separate so a low rate with heavy cartage cannot hide.</td></tr>
+  <tr><td>Usual prices</td><td>The owner records what each material should cost. Every bill is checked against that figure as it is typed — before anyone signs for a delivery.</td></tr>
+  <tr><td>Rate book</td><td>What each supplier has quoted or been paid. When a rate is entered above the cheapest known, the software names the cheaper supplier, the percentage, and the money on that load.</td></tr>
+</table>
+
+<h3>Build-against-build comparison</h3>
+<p>Every cross-build figure holds three things still at once: the new house is a different
+size, prices drift on their own over the years, and the quantities differ. What remains is
+split into two numbers that always reconcile against the money:</p>
+<ul>
+  <li><strong>Extra from rate</strong> — being charged a higher price per unit than last time, after normal market drift is allowed for.</li>
+  <li><strong>Extra from quantity</strong> — more material billed than a house of that size needed last time. A fair rate on a padded quantity is still a problem, and this is the half most often missed.</li>
+</ul>
+<p>The same arithmetic runs over labour, so a padded muster roll appears as extra man-days
+rather than an extra day rate.</p>
+
+<h3>Checks that need no comparison</h3>
+<p>On a single build's own bills, the software flags: the same bill entered twice, one
+vendor charging more than another for the same material, a rate that climbs mid-build, a
+single bill priced well above the rest, and large payments with no invoice number recorded.</p>
+
+<h3>Nothing counts until the owner confirms it</h3>
+<p>Entries made by site staff are held as claims. They stay out of every total, every wage
+balance and every comparison until the owner confirms them. Rejected entries stay on record
+with the reason attached, and editing a confirmed record sends it back for confirmation.</p>
+
+<h3>Built for the site</h3>
+<p>The five daily screens sit in a thumb bar on a phone; it can be added to a home screen and
+opens like an app. Accounts are per person, with owner and staff roles. All records live in a
+single file on the company's own machine or server.</p>
+
+<h2>What it does not do</h2>
+
+<table class="cannot">
+  <tr><td>Find suppliers</td><td>It cannot go out and discover local suppliers or their prices. No service publishes what the cement shop down the road charges today. It compares against rates <em>you</em> collect and rates you have already paid — which is why filling the rate book matters.</td></tr>
+  <tr><td>Prove dishonesty</td><td>A flag is a question worth asking, not evidence. The figures are the company's own records; they cannot establish what a supplier did or intended.</td></tr>
+  <tr><td>Full accounting</td><td>It is not a bookkeeping package. No ledgers, trial balance, VAT or tax returns, no bank reconciliation, no statutory filing.</td></tr>
+  <tr><td>Bank or GST links</td><td>No connection to banks, payment systems or tax portals. Nothing is filed on your behalf.</td></tr>
+  <tr><td>Read paper bills</td><td>Bills are typed in. There is no scanning or photographing of invoices.</td></tr>
+  <tr><td>Work offline</td><td>It needs the machine or server it runs on to be reachable. There is no offline mode that syncs later.</td></tr>
+  <tr><td>Encrypt the file</td><td>Accounts protect the application, not the disk. Anyone with the server or a copy of the database file can read it. Keep the machine and its backups secure.</td></tr>
+  <tr><td>Estimate or design</td><td>No quantity take-off from drawings, no BOQ preparation, no scheduling, no design work.</td></tr>
+  <tr><td>Stop an overcharge</td><td>It tells you, with a number. Acting on it — the phone call, the argument, the changed order — is still a person's job.</td></tr>
+</table>
+
+<h2>What it needs</h2>
+<p>One of three arrangements, in order of cost and reach:</p>
+<ul>
+  <li><strong>One office computer</strong> — free, used at that desk only.</li>
+  <li><strong>The office network</strong> — free, reachable from any machine on the office wifi.</li>
+  <li><strong>A server with HTTPS</strong> — roughly US$6–8 a month plus a domain name, reachable from any phone on any site.</li>
+</ul>
+<p>Whichever is chosen, the database must sit on storage that survives a restart, and should
+be backed up nightly and copied off the machine.</p>
+
+<div class="note avoid-break">
+  <strong>On the company's records.</strong> All data stays in one file on the company's own
+  machine or hosting account. No part of the software sends the company's figures to any
+  third party. A copy of the file can be handed over at any time on request. Fault
+  diagnostics record the error and the page it happened on — never bills, wages, rates or
+  names.
+</div>
+
+</body>
+</html>

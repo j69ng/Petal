@@ -7,3 +7,8 @@ data/*.db-*
 .env.local
 *.tsbuildinfo
 next-env.d.ts
+
+# Your signature and the signed documents. Personal, and a signature image in a
+# repository is a signature anyone with the repository can reuse.
+docs/signature.png
+docs/*.pdf
