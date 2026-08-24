@@ -2,6 +2,24 @@
 
 Everything below runs on your own computer. Nothing is uploaded anywhere.
 
+## No computer set up for this? Skip to a hosted address
+
+If `git` or `npm` is "not recognised", they are not installed — and you may not
+want to install them at all. [deploy/DEPLOY.md](deploy/DEPLOY.md) has a path
+that needs nothing but a browser: a host builds it from GitHub and gives you a
+public HTTPS address, about fifteen minutes and roughly $7 a month.
+
+Two things to know if you do install them:
+
+- **Node.js gives you `npm`** — one installer from https://nodejs.org (take the
+  LTS one) covers both `node` and `npm`.
+- **Close the terminal and open a new one afterwards.** An already-open window
+  keeps the old settings and will still say "not recognised" even after a
+  successful install. This catches nearly everyone once.
+- **You do not need Git.** On GitHub, switch to the branch, press the green
+  **Code** button and choose **Download ZIP**. Unzip it and use the `bhargo`
+  folder inside.
+
 ## Start it
 
 You need [Node.js 20 or newer](https://nodejs.org) — the LTS installer, whatever
@@ -16,6 +34,14 @@ cd bhargo
 npm ci        # installs dependencies, about a minute
 npm run demo  # loads the sample builds and starts it
 ```
+
+Downloaded the ZIP instead? Open a terminal in the unzipped `bhargo` folder and
+run the last two lines only. On Windows: open the folder in File Explorer, type
+`cmd` in the address bar and press Enter. On a Mac: right-click the folder →
+Services → New Terminal at Folder.
+
+If anything is missing, the app says which and what to do — it checks before it
+starts rather than failing halfway.
 
 Open **http://localhost:3000**.
 

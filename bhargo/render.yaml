@@ -1,0 +1,36 @@
+# A public address without touching a terminal.
+#
+# On render.com: New > Blueprint, point it at this repository, and it reads
+# this file. Everything below is what the dashboard would otherwise ask for.
+#
+# The disk is the part that matters: without it the books are wiped on every
+# deploy, because the container's own filesystem does not survive a restart.
+
+services:
+  - type: web
+    name: bhargo
+    runtime: node
+    plan: starter # a disk needs a paid plan; the free tier has no persistence
+    region: singapore # nearest to South Asia; oregon/frankfurt also available
+    rootDir: bhargo
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: false # deploy when you choose, not on every push
+
+    disk:
+      name: books
+      mountPath: /var/lib/bhargo
+      sizeGB: 1 # years of records; a build is a few hundred kilobytes
+
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: BHARGO_DB
+        value: /var/lib/bhargo/bhargo.db
+      - key: BHARGO_SECURE_COOKIES
+        value: "1" # the address is HTTPS, so the session cookie should be too
+      - key: BHARGO_SETUP_KEY
+        generateValue: true # read it once from the dashboard, claim the owner account, then clear it
+      - key: BHARGO_OPS_KEY
+        generateValue: true # opens /diagnostics for you

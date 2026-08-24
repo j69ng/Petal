@@ -8,6 +8,7 @@ the fewer places it can be reached from, the less there is to protect.
 | **A. One office computer** | Whoever sits at that desk | nothing | 20 minutes |
 | **B. The office network** | Anyone on the office wifi | nothing | 30 minutes |
 | **C. A server with HTTPS** | Site staff too, from any phone | ~$6/month + domain | 1 hour |
+| **D. Hosted, from a browser** | Same as C | ~$7/month | 15 minutes, no terminal |
 
 Most contractors want **C** once they see the phone screens — a supervisor
 records the delivery at the gate, the owner confirms it from wherever they are.
@@ -38,6 +39,68 @@ npx next start -H 0.0.0.0 -p 3000
 Others open `http://<that-computer-ip>:3000`. Find the address with `ip addr` or
 `ipconfig`. **Do not forward that port on the router** — that is what turns a
 private tool into a public one by accident.
+
+---
+
+## D. A public address without a terminal
+
+If there is no computer with Node and Git on it — and there usually is not on a
+building site — this is the shortest way to a working address. Everything
+happens in a browser.
+
+You need a GitHub account with this repository, and an account with a host that
+builds from GitHub and offers a **persistent disk**. Render, Railway and Fly all
+do. The settings below are Render's names; the others ask for the same things
+under slightly different labels.
+
+1. **New → Blueprint**, point it at this repository. It reads `bhargo/render.yaml`
+   and fills in everything below. If you would rather do it by hand, use **New →
+   Web Service** and enter:
+
+   | Setting | Value |
+   | --- | --- |
+   | Root directory | `bhargo` |
+   | Build command | `npm ci && npm run build` |
+   | Start command | `npm run start` |
+   | Health check path | `/api/health` |
+   | Disk mount path | `/var/lib/bhargo`, 1 GB |
+   | `BHARGO_DB` | `/var/lib/bhargo/bhargo.db` |
+   | `BHARGO_SECURE_COOKIES` | `1` |
+   | `BHARGO_SETUP_KEY` | a long random string you choose |
+   | `BHARGO_OPS_KEY` | another long random string |
+
+2. **The disk is not optional.** Without it the books are wiped on every deploy —
+   these hosts give each container a fresh filesystem. A disk is also what puts
+   these plans on the paid tier, around $7 a month.
+
+3. When it says live, open `https://your-app.onrender.com/setup`, type the setup
+   key, and create the owner account. Then **remove `BHARGO_SETUP_KEY`** and
+   redeploy — the page closes for good once an owner exists, but there is no
+   reason to leave the key lying around.
+
+4. Add your own domain if you want one — the host does the certificate.
+
+5. Set up backups the same day. The disk is theirs, not yours: use the host's
+   snapshot feature if it has one, and either way have someone download
+   `/var/lib/bhargo/bhargo.db` weekly through the host's shell. A company's books
+   living only inside a hosting account is a bad place for them to be.
+
+### Or as a container
+
+`Dockerfile` builds a self-contained image for anything that takes one — Fly,
+Railway, a Docker host, a NAS at the office:
+
+```bash
+docker build -t bhargo .
+docker run -d --name bhargo -p 3000:3000 \
+  -v bhargo-data:/data \
+  -e BHARGO_SECURE_COOKIES=1 \
+  -e BHARGO_SETUP_KEY=change-me \
+  bhargo
+```
+
+The books live on the `/data` volume, never inside the image, so a new version
+cannot touch them.
 
 ---
 
